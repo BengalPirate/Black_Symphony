@@ -1,4 +1,4 @@
-/*import React from 'react';
+import React from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 
 interface TileLayer {
@@ -18,7 +18,7 @@ interface TilesetInfo {
   tileheight: number;
 }
 
-interface TiledMapProps {
+interface VirtualizedTiledMapProps {
   map: {
     width: number;
     height: number;
@@ -26,9 +26,23 @@ interface TiledMapProps {
     tilesets: TilesetInfo[];
   };
   tileSize: number;
+
+  // These are required to determine which tiles are in view
+  playerX: number;      // Player's world x-coordinate
+  playerY: number;      // Player's world y-coordinate
+  screenWidth: number;  // Width of the device screen
+  screenHeight: number; // Height of the device screen
 }
 
-const TiledMap: React.FC<TiledMapProps> = ({ map, tileSize }) => {
+export default function VirtualizedTiledMap({
+  map,
+  tileSize,
+  playerX,
+  playerY,
+  screenWidth,
+  screenHeight,
+}: VirtualizedTiledMapProps) {
+
   // Extract only tile layers
   const tileLayers = map.layers.filter(
     (layer) => layer.type === 'tilelayer' && layer.data && layer.width && layer.height
@@ -40,7 +54,6 @@ const TiledMap: React.FC<TiledMapProps> = ({ map, tileSize }) => {
     for (let i = 0; i < map.tilesets.length; i++) {
       const ts = map.tilesets[i];
       const nextTs = map.tilesets[i + 1];
-      // If this is the last tileset or the next tileset's firstgid is greater than gid
       if (!nextTs || gid < nextTs.firstgid) {
         if (gid >= ts.firstgid) {
           chosen = ts;
@@ -55,7 +68,7 @@ const TiledMap: React.FC<TiledMapProps> = ({ map, tileSize }) => {
     const { tilewidth, tileheight, imageWidth } = tileset;
     const tilesPerRow = Math.floor(imageWidth / tilewidth);
 
-    // Adjust tileIndex by subtracting tileset.firstgid, so 1-based index within that tileset
+    // Adjust tileIndex by subtracting tileset.firstgid to get the tile index local to that tileset
     const localIndex = tileIndex - tileset.firstgid;
     const row = Math.floor(localIndex / tilesPerRow);
     const col = localIndex % tilesPerRow;
@@ -64,18 +77,40 @@ const TiledMap: React.FC<TiledMapProps> = ({ map, tileSize }) => {
     return { sourceX, sourceY };
   };
 
+  // Determine the range of tiles to render based on the player's position
+  // Convert screen size to number of tiles visible
+  const tilesVisibleX = Math.ceil(screenWidth / tileSize);
+  const tilesVisibleY = Math.ceil(screenHeight / tileSize);
+
+  // Center the view around the player
+  const playerTileX = Math.floor(playerX / tileSize);
+  const playerTileY = Math.floor(playerY / tileSize);
+
+  // Add a margin of a few tiles to avoid pop-in at edges
+  const margin = 2;
+  const startX = Math.max(playerTileX - Math.floor(tilesVisibleX / 2) - margin, 0);
+  const startY = Math.max(playerTileY - Math.floor(tilesVisibleY / 2) - margin, 0);
+  const endX = Math.min(playerTileX + Math.floor(tilesVisibleX / 2) + margin, map.width - 1);
+  const endY = Math.min(playerTileY + Math.floor(tilesVisibleY / 2) + margin, map.height - 1);
+
   return (
     <View style={[styles.container, { width: map.width * tileSize, height: map.height * tileSize }]}>
-      {tileLayers.map((layer, layerIndex) => (
+      {tileLayers.map((layer, layerIndex) =>
         layer.data.map((tileIndex, i) => {
           if (tileIndex === 0) return null; // Empty tile
 
-          // Find the correct tileset for this tileIndex
+          // Calculate the tile's x,y in tile coordinates
+          const x = (i % layer.width!) ;
+          const y = Math.floor(i / layer.width!);
+
+          // Skip tiles outside the visible range
+          if (x < startX || x > endX || y < startY || y > endY) {
+            return null;
+          }
+
           const tileset = findTileset(tileIndex);
           if (!tileset) return null;
 
-          const x = (i % layer.width!) * tileSize;
-          const y = Math.floor(i / layer.width!) * tileSize;
           const { sourceX, sourceY } = getTilePosition(tileIndex, tileset);
 
           return (
@@ -83,8 +118,8 @@ const TiledMap: React.FC<TiledMapProps> = ({ map, tileSize }) => {
               key={`${layerIndex}-${i}`}
               style={{
                 position: 'absolute',
-                top: y,
-                left: x,
+                top: y * tileSize,
+                left: x * tileSize,
                 width: tileSize,
                 height: tileSize,
                 overflow: 'hidden',
@@ -103,55 +138,14 @@ const TiledMap: React.FC<TiledMapProps> = ({ map, tileSize }) => {
             </View>
           );
         })
-      ))}
+      )}
     </View>
   );
-};
-
-const styles = StyleSheet.create({
-  container: {
-    position: 'relative',
-  },
-});
-
-export default TiledMap;
-*/
-import React from 'react';
-import { View, Image, StyleSheet } from 'react-native';
-
-interface TiledMapProps {
-  mapWidth: number;    // Map width in tiles
-  mapHeight: number;   // Map height in tiles
-  tileSize: number;    // Size of each tile in pixels
-  mapImage: any;       // require('path/to/map_full.png')
 }
 
-const TiledMap: React.FC<TiledMapProps> = ({ mapWidth, mapHeight, tileSize, mapImage }) => {
-  const mapWidthPx = mapWidth * tileSize;
-  const mapHeightPx = mapHeight * tileSize;
-
-  return (
-    <View style={[styles.container, { width: mapWidthPx, height: mapHeightPx }]}>
-      <Image
-        source={mapImage}
-        style={{
-          width: mapWidthPx,
-          height: mapHeightPx,
-          position: 'absolute',
-          top: 0,
-          left: 0,
-        }}
-        resizeMode="cover"
-      />
-    </View>
-  );
-};
-
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    backgroundColor: 'black',
+    backgroundColor: 'white', // Just to confirm rendering area (optional)
   },
 });
-
-export default TiledMap;

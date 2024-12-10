@@ -1,53 +1,129 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Modal, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
-import Svg from 'react-native-svg';
+import Svg, { Polygon } from 'react-native-svg'; // Import Polygon to draw barriers
 import Player from '../../components/Player';
 import GameController from '../../components/GameController';
-import TiledMap from '../../components/TiledMap';
 import { HellscapeMap } from '../../assets/maps/HellscapeMap';
 import { movePlayer, Position } from '../../controllers/playerController';
+import TiledMap from '../../components/TiledMap';
+import mapFullImage from '../../assets/maps/map_full.png';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const SCREEN_HEIGHT = Dimensions.get('window').height;
+
+const MOVE_SPEED = 20;
+const PLAYER_SIZE = 32;
+const TILE_SIZE = 32;
 
 export default function ArcadeScreen() {
-  const [playerPosition, setPlayerPosition] = useState<Position>({
-    x: Dimensions.get('window').width / 2 - 25,
-    y: Dimensions.get('window').height / 2 - 25,
+  const mapWidthPx = HellscapeMap.width * TILE_SIZE;
+  const mapHeightPx = HellscapeMap.height * TILE_SIZE;
+
+  // Player starts at center of map
+  const [playerWorldPos, setPlayerWorldPos] = useState<Position>({
+    x: mapWidthPx / 2,
+    y: mapHeightPx / 2,
   });
 
   const [isPaused, setIsPaused] = useState(false);
 
+  // Just joystick input here
+  const [joystickDirection, setJoystickDirection] = useState<{ dx: number; dy: number }>({ dx: 0, dy: 0 });
+
+  const frameRequestRef = useRef<number | null>(null);
+
+  // Extract barrier polygons
+  // Objects either have obj.type === 'barrier' or a property barrier=true
+  const [barriers] = useState(() => {
+    const polygons: { x: number; y: number }[][] = [];
+    for (const layer of HellscapeMap.layers) {
+      if (layer.type === 'objectgroup') {
+        for (const obj of layer.objects) {
+          const isBarrierType = obj.type === 'barrier';
+          const hasBarrierProp = obj.properties && obj.properties.some(p => p.name === 'barrier' && p.value === true);
+          if (obj.polygon && (isBarrierType || hasBarrierProp)) {
+            const poly = obj.polygon.map(pt => ({ x: obj.x + pt.x, y: obj.y + pt.y }));
+            polygons.push(poly);
+          }
+        }
+      }
+    }
+    return polygons;
+  });
+
   const handleMove = (dx: number, dy: number) => {
-    setPlayerPosition((current) => movePlayer(current, dx * 5, dy * 5));
+    const length = Math.sqrt(dx * dx + dy * dy);
+    if (length > 0) {
+      setJoystickDirection({ dx: dx / length, dy: dy / length });
+    } else {
+      setJoystickDirection({ dx: 0, dy: 0 });
+    }
   };
 
   const handleShoot = () => console.log('Shoot');
   const handleMelee = () => console.log('Melee');
   const handleDash = () => console.log('Dash');
 
-  // Filter tile layers
-  const tileLayers = HellscapeMap.layers
-    .filter((layer) => layer.type === 'tilelayer')
-    .map((layer) => ({
-      type: layer.type,
-      data: 'data' in layer ? layer.data : [],
-      width: 'width' in layer ? layer.width : 0,
-      height: 'height' in layer ? layer.height : 0
-    }));
+  const offsetX = SCREEN_WIDTH / 2 - playerWorldPos.x;
+  const offsetY = SCREEN_HEIGHT / 2 - playerWorldPos.y;
+
+  const animate = () => {
+    let dx = joystickDirection.dx;
+    let dy = joystickDirection.dy;
+
+    if (dx !== 0 || dy !== 0) {
+      const length = Math.sqrt(dx * dx + dy * dy);
+      const ndx = dx / length;
+      const ndy = dy / length;
+      setPlayerWorldPos((current) => movePlayer(current, ndx * MOVE_SPEED, ndy * MOVE_SPEED, barriers));
+    }
+
+    frameRequestRef.current = requestAnimationFrame(animate);
+  };
+
+  useEffect(() => {
+    frameRequestRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (frameRequestRef.current) {
+        cancelAnimationFrame(frameRequestRef.current);
+      }
+    };
+  }, [joystickDirection, barriers]);
 
   return (
     <View style={styles.container}>
-      <Svg width="100%" height="100%" style={styles.mapContainer}>
-        <TiledMap
-          map={{
-            width: HellscapeMap.width,
-            height: HellscapeMap.height,
-            layers: tileLayers,
-            tilesets: HellscapeMap.tilesets // Pass all tilesets
-          }}
-          tileSize={32}
-        />
-      </Svg>
+      <View style={styles.mapContainer}>
+        <Svg width="100%" height="100%">
+          <View style={{ transform: [{ translateX: offsetX }, { translateY: offsetY }] }}>
+            <TiledMap
+              mapWidth={HellscapeMap.width}
+              mapHeight={HellscapeMap.height}
+              tileSize={TILE_SIZE}
+              mapImage={mapFullImage}
+            />
 
-      <Player x={playerPosition.x} y={playerPosition.y} />
+            {/* Render barriers as polygons for debugging */}
+            {barriers.map((poly, index) => {
+              const pointsStr = poly.map(p => `${p.x},${p.y}`).join(' ');
+              return (
+                <Polygon
+                  key={index}
+                  points={pointsStr}
+                  fill="rgba(255,0,0,0.3)"
+                  stroke="red"
+                  strokeWidth={2}
+                />
+              );
+            })}
+          </View>
+        </Svg>
+      </View>
+
+      <Player
+        x={SCREEN_WIDTH / 2 - PLAYER_SIZE / 2}
+        y={SCREEN_HEIGHT / 2 - PLAYER_SIZE / 2}
+      />
+
       <GameController
         onMove={handleMove}
         onShoot={handleShoot}
@@ -76,7 +152,10 @@ export default function ArcadeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  mapContainer: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
+  mapContainer: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    overflow: 'hidden'
+  },
   pauseButton: {
     position: 'absolute',
     top: 20,
@@ -84,6 +163,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
     padding: 10,
     borderRadius: 5,
+    zIndex: 999
   },
   pauseText: { color: 'white', fontSize: 16 },
   pauseMenu: {

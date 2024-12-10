@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 
-const PLAYER_SIZE = 50;
+const PLAYER_SIZE = 32; // Smaller so it fits better with the tile size
 
 interface PlayerProps {
   x: number;
