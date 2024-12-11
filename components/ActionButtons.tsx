@@ -1,27 +1,39 @@
 import React from 'react';
-import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Text, StyleSheet, Dimensions } from 'react-native';
 
 interface ActionButtonsProps {
-  onShoot: () => void;
-  onMelee: () => void;
   onDash: () => void;
+  onShoot: () => void;
+  onSpecial: () => void;
+  onUseItem: () => void;
 }
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({
-  onShoot,
-  onMelee,
-  onDash,
-}) => {
+const { width, height } = Dimensions.get('window');
+
+const BUTTON_SIZE = 60;
+const BUTTON_MARGIN = 20;
+
+const ActionButtons: React.FC<ActionButtonsProps> = ({ onDash, onShoot, onSpecial, onUseItem }) => {
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={onShoot} style={styles.button}>
-        <Text style={styles.text}>Shoot</Text>
+      {/* Dash (Bottom) */}
+      <TouchableOpacity onPress={onDash} style={[styles.button, styles.bottomButton]}>
+        <Text style={styles.buttonText}>Dash</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onMelee} style={styles.button}>
-        <Text style={styles.text}>Melee</Text>
+
+      {/* Shoot (Right) */}
+      <TouchableOpacity onPress={onShoot} style={[styles.button, styles.rightButton]}>
+        <Text style={styles.buttonText}>Shoot</Text>
       </TouchableOpacity>
-      <TouchableOpacity onPress={onDash} style={styles.button}>
-        <Text style={styles.text}>Dash</Text>
+
+      {/* Special (Top) */}
+      <TouchableOpacity onPress={onSpecial} style={[styles.button, styles.topButton]}>
+        <Text style={styles.buttonText}>Special</Text>
+      </TouchableOpacity>
+
+      {/* Use Item (Left) */}
+      <TouchableOpacity onPress={onUseItem} style={[styles.button, styles.leftButton]}>
+        <Text style={styles.buttonText}>Use</Text>
       </TouchableOpacity>
     </View>
   );
@@ -30,22 +42,40 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    right: 20,
     bottom: 50,
-    justifyContent: 'space-between',
+    right: 20,
+    width: BUTTON_SIZE * 3, // Expand to fit the diamond layout
+    height: BUTTON_SIZE * 3,
   },
   button: {
-    width: 60,
-    height: 60,
-    marginVertical: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    position: 'absolute',
+    width: BUTTON_SIZE,
+    height: BUTTON_SIZE,
+    borderRadius: BUTTON_SIZE / 2,
+    backgroundColor: '#333',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 30,
   },
-  text: {
+  bottomButton: {
+    top: BUTTON_SIZE + BUTTON_MARGIN, // Place at the bottom of the diamond
+    left: BUTTON_SIZE + BUTTON_MARGIN / 2,
+  },
+  rightButton: {
+    top: BUTTON_SIZE / 2, // Place at the right of the diamond
+    left: BUTTON_SIZE * 2 + BUTTON_MARGIN,
+  },
+  topButton: {
+    top: 0, // Place at the top of the diamond
+    left: BUTTON_SIZE + BUTTON_MARGIN / 2,
+  },
+  leftButton: {
+    top: BUTTON_SIZE / 2, // Place at the left of the diamond
+    left: 0,
+  },
+  buttonText: {
     color: 'white',
     fontSize: 14,
+    textAlign: 'center',
   },
 });
 
