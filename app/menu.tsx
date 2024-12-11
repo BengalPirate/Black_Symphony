@@ -9,21 +9,23 @@ export default function MenuScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Game Menu</Text>
 
-      <TouchableOpacity onPress={() => {}} style={styles.menuItem}>
-        <Text style={styles.menuText}>Story Mode</Text>
-      </TouchableOpacity>
+      <View style={styles.menuContainer}>
+        <TouchableOpacity onPress={() => {}} style={styles.menuItem}>
+          <Text style={styles.menuText}>Story Mode</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push('/arcade')} style={styles.menuItem}>
-        <Text style={styles.menuText}>Arcade Mode</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/arcade')} style={styles.menuItem}>
+          <Text style={styles.menuText}>Arcade Mode</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => {}} style={styles.menuItem}>
-        <Text style={styles.menuText}>Settings</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => {}} style={styles.menuItem}>
+          <Text style={styles.menuText}>Settings</Text>
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => {}} style={styles.menuItem}>
-        <Text style={styles.menuText}>Credits</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => {}} style={styles.menuItem}>
+          <Text style={styles.menuText}>Credits</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -36,20 +38,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 42,
+    fontSize: 28, // Reduced title size
     color: '#fff',
-    marginBottom: 40,
+    marginBottom: 20,
+  },
+  menuContainer: {
+    width: '100%',
+    alignItems: 'center',
   },
   menuItem: {
-    padding: 20,
-    marginVertical: 10,
+    padding: 10, // Reduced padding
+    marginVertical: 8, // Reduced margin for spacing
     backgroundColor: '#333',
-    width: '50%',
-    borderRadius: 10,
+    width: '70%', // Adjusted width to fit
+    maxWidth: 250, // Ensures consistent size across devices
+    borderRadius: 8,
     alignItems: 'center',
   },
   menuText: {
     color: '#fff',
-    fontSize: 24,
+    fontSize: 20, // Slightly reduced font size
+    textAlign: 'center',
   },
 });
