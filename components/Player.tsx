@@ -1,96 +1,33 @@
-/*import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, View, ImageSourcePropType, ViewStyle } from 'react-native';
-import { spriteFrames } from '../assets/sprites/spriteFrames';
-
-interface PlayerProps {
-  x: number;
-  y: number;
-  direction: string; // "up", "down", "left", "right", etc.
-  isMoving: boolean; // Detect movement
-  isDashing: boolean;
-  style?: ViewStyle;
-}
-
-const PLAYER_SIZE = 64; // Adjust size for your sprites
-
-const Player: React.FC<PlayerProps> = ({ x, y, direction, isMoving, isDashing, style }) => {
-  const directionsMap: Record<string, ImageSourcePropType[]> = spriteFrames;
-
-  const [frameIndex, setFrameIndex] = useState(0);
-  const currentFrames = directionsMap[direction] || directionsMap['down']; // Default to "down" direction
-
-  useEffect(() => {
-    if (isMoving) {
-      // Only animate when moving
-      const interval = setInterval(() => {
-        setFrameIndex((prev) => (prev + 1) % currentFrames.length);
-      }, 150); // Adjust animation speed in ms
-
-      return () => clearInterval(interval); // Clean up interval on unmount
-    } else {
-      setFrameIndex(0); // Default to the first frame when not moving
-    }
-  }, [isMoving, direction, currentFrames]);
-
-  const currentFrame = currentFrames[frameIndex];
-
-  return (
-    <View
-      style={[
-        styles.playerContainer,
-        {
-          left: x - PLAYER_SIZE / 2,
-          top: y - PLAYER_SIZE / 2,
-        },
-        style, // Apply additional styles like zIndex
-      ]}
-    >
-      <Image source={require('../assets/sprites/frames/down1.png')} style={styles.playerImage} />
-      {isDashing && (
-        // Optionally draw a glow or afterimage to indicate dashing
-        <View style={styles.dashEffect} />
-      )}
-    </View>
-  );
-};
-
-const styles = StyleSheet.create({
-  playerContainer: {
-    position: 'absolute',
-  },
-  playerImage: {
-    width: PLAYER_SIZE,
-    height: PLAYER_SIZE,
-  },
-  dashEffect: {
-    position: 'absolute',
-    width: PLAYER_SIZE,
-    height: PLAYER_SIZE,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: PLAYER_SIZE / 2,
-  },
-});
-
-export { PLAYER_SIZE };
-export default Player;
-*/
 import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View, Dimensions } from 'react-native';
 import { spriteFrames } from '../assets/sprites/spriteFrames';
-import { Direction } from '../constants/types'
+import { Direction } from '../constants/types';
 
 interface PlayerProps {
-  x: number;
-  y: number;
-  direction: Direction; // Use the defined Direction type
+  x: number;        // Not used for absolute positioning now
+  y: number;        // Not used for absolute positioning now
+  direction: Direction;
   isMoving: boolean;
   isDashing: boolean;
 }
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PLAYER_SIZE = 64;
 
-const Player: React.FC<PlayerProps> = ({ x, y, direction, isMoving, isDashing }) => {
-  const currentFrames = spriteFrames[direction] || spriteFrames['down'];
+/**
+ * This Player component draws the sprite in the center
+ * of the screen, ignoring the passed-in x,y for layout
+ * (since we shift the map instead).
+ */
+const Player: React.FC<PlayerProps> = ({
+  x,
+  y,
+  direction,
+  isMoving,
+  isDashing,
+}) => {
+  // Frames for the current direction (or default to "down")
+  const currentFrames = spriteFrames[direction] || spriteFrames.down;
 
   const [frameIndex, setFrameIndex] = useState(0);
 
@@ -99,27 +36,29 @@ const Player: React.FC<PlayerProps> = ({ x, y, direction, isMoving, isDashing })
       const interval = setInterval(() => {
         setFrameIndex((prev) => (prev + 1) % currentFrames.length);
       }, 150);
-
       return () => clearInterval(interval);
     } else {
+      // If not moving, use the first frame
       setFrameIndex(0);
     }
   }, [isMoving, currentFrames]);
-
-  console.log('Player Props:', { x, y, direction, isMoving, isDashing });
-  console.log('Current Frame:', currentFrames[frameIndex]);
 
   return (
     <View
       style={[
         styles.playerContainer,
         {
-          left: x - PLAYER_SIZE / 2,
-          top: y - PLAYER_SIZE / 2,
+          // Place the player at the exact center of the screen
+          left: SCREEN_WIDTH / 2 - PLAYER_SIZE / 2,
+          top: SCREEN_HEIGHT / 2 - PLAYER_SIZE / 2,
         },
       ]}
     >
-      <Image source={currentFrames[frameIndex]} style={styles.playerImage} />
+      <Image
+        source={currentFrames[frameIndex]}
+        style={styles.playerImage}
+        resizeMode="contain"
+      />
     </View>
   );
 };
@@ -127,6 +66,7 @@ const Player: React.FC<PlayerProps> = ({ x, y, direction, isMoving, isDashing })
 const styles = StyleSheet.create({
   playerContainer: {
     position: 'absolute',
+    zIndex: 9999,
   },
   playerImage: {
     width: PLAYER_SIZE,
