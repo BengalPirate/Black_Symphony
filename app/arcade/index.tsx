@@ -19,28 +19,34 @@ import mapFullImage from '../../assets/maps/map_full.png';
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 
-const MOVE_SPEED = 20;
-const TILE_SIZE = 32;
+const MOVE_SPEED = 20;   // Speed per joystick "step"
+const TILE_SIZE = 32;    // Size of each tile in the Tiled map
 
 export default function ArcadeScreen() {
-  // Size of TiledMap in "world coordinates"
+  // 1) Calculate total map size in “world coordinates.”
   const mapWidthPx = HellscapeMap.width * TILE_SIZE;
   const mapHeightPx = HellscapeMap.height * TILE_SIZE;
 
-  // Player's world position
+  // 2) Player’s “world” position
   const [playerWorldPos, setPlayerWorldPos] = useState<Position>({
     x: mapWidthPx / 2,
     y: mapHeightPx / 2,
   });
 
+  // 3) Player state: direction & movement flags
   const [direction, setDirection] = useState<Direction>('down');
   const [isMoving, setIsMoving] = useState(false);
+
+  // 4) Pause modal
   const [isPaused, setIsPaused] = useState(false);
+
+  // 5) Joystick-based movement
   const [joystickDirection, setJoystickDirection] = useState({ dx: 0, dy: 0 });
 
+  // requestAnimationFrame reference
   const frameRequestRef = useRef<number | null>(null);
 
-  // Extract barrier polygons
+  // 6) Extract collision polygons from Tiled
   const [barriers] = useState(() => {
     const polygons: { x: number; y: number }[][] = [];
     for (const layer of HellscapeMap.layers) {
@@ -64,58 +70,77 @@ export default function ArcadeScreen() {
   });
 
   /**
-   * Handle immediate movement events from joystick (onMove).
-   * dx, dy ∈ [-1..1], newDirection is 'up','down','left','right', etc.
+   * handleMove:
+   * Called when the movement joystick changes (dx, dy, direction).
+   * We do a single immediate step to avoid the sprite not appearing on first move,
+   * then rely on the animate() loop for continuous motion.
    */
   const handleMove = (dx: number, dy: number, newDirection: Direction) => {
     if (dx === 0 && dy === 0) {
       setIsMoving(false);
-      return;
+    } else {
+      setIsMoving(true);
+      setDirection(newDirection);
+
+      // Immediate single-step movement for visual responsiveness
+      setPlayerWorldPos((prevPos) => {
+        const stepX = prevPos.x + dx * MOVE_SPEED;
+        const stepY = prevPos.y + dy * MOVE_SPEED;
+        return movePlayer(
+          {
+            x: Math.max(0, Math.min(mapWidthPx, stepX)),
+            y: Math.max(0, Math.min(mapHeightPx, stepY)),
+          },
+          dx * MOVE_SPEED,
+          dy * MOVE_SPEED,
+          barriers
+        );
+      });
     }
-    setIsMoving(true);
-    setDirection(newDirection);
 
-    // We move the player once per "handleMove" call
-    // (which fires continuously while the user drags).
-    const newX = playerWorldPos.x + dx * MOVE_SPEED;
-    const newY = playerWorldPos.y + dy * MOVE_SPEED;
-
-    setPlayerWorldPos((curPos) =>
-      movePlayer(
-        {
-          x: Math.max(0, Math.min(mapWidthPx, newX)),
-          y: Math.max(0, Math.min(mapHeightPx, newY)),
-        },
-        dx * MOVE_SPEED,
-        dy * MOVE_SPEED,
-        barriers
-      )
-    );
+    // Store the joystick direction for animate() to do continuous movement
+    setJoystickDirection({ dx, dy });
   };
 
-  // Shooting
+  /**
+   * handleShoot:
+   * Called when shooting joystick changes (dx, dy).
+   */
   const handleShoot = (dx: number, dy: number) => {
-    // dx, dy ∈ [-1..1]. If they're both 0, user isn't dragging the shoot joystick.
     if (dx === 0 && dy === 0) return;
-    console.log(`Shoot in direction: dx=${dx}, dy=${dy}`);
+    console.log(`Shooting dx=${dx}, dy=${dy}`);
+    // Could spawn projectile, etc.
   };
 
-  // If you also have continuous movement logic in an animation frame:
+  /**
+   * animate:
+   * Each frame, if joystickDirection != (0,0), move the player a small step.
+   */
   const animate = () => {
     const { dx, dy } = joystickDirection;
     if (dx !== 0 || dy !== 0) {
-      // Move a small step each frame
       const length = Math.sqrt(dx * dx + dy * dy);
-      const ndx = dx / length;
-      const ndy = dy / length;
+      if (length > 0.001) {
+        const ndx = (dx / length) * MOVE_SPEED;
+        const ndy = (dy / length) * MOVE_SPEED;
 
-      setPlayerWorldPos((curPos) =>
-        movePlayer(curPos, ndx * MOVE_SPEED, ndy * MOVE_SPEED, barriers)
-      );
+        setPlayerWorldPos((curPos) =>
+          movePlayer(
+            {
+              x: curPos.x + ndx,
+              y: curPos.y + ndy,
+            },
+            ndx,
+            ndy,
+            barriers
+          )
+        );
+      }
     }
     frameRequestRef.current = requestAnimationFrame(animate);
   };
 
+  // Start the animation loop
   useEffect(() => {
     frameRequestRef.current = requestAnimationFrame(animate);
     return () => {
@@ -123,14 +148,14 @@ export default function ArcadeScreen() {
     };
   }, [joystickDirection, barriers]);
 
-  // Shift map so player stays in center
+  // 7) Offset so the player is at screen center
   const offsetX = SCREEN_WIDTH / 2 - playerWorldPos.x;
   const offsetY = SCREEN_HEIGHT / 2 - playerWorldPos.y;
 
   return (
     <View style={styles.container}>
-      {/* Map */}
-      <View style={[styles.mapContainer, { zIndex: 1 }]}>
+      {/* 1) Tiled Map behind everything, offset for center */}
+      <View style={styles.mapContainer}>
         <View style={{ transform: [{ translateX: offsetX }, { translateY: offsetY }] }}>
           <TiledMap
             mapWidth={HellscapeMap.width}
@@ -141,15 +166,15 @@ export default function ArcadeScreen() {
         </View>
       </View>
 
-      {/* Barriers */}
-      <Svg style={[StyleSheet.absoluteFill, { zIndex: 2 }]}>
+      {/* 2) Barriers in Svg, same offset */}
+      <Svg style={StyleSheet.absoluteFill}>
         <G transform={`translate(${offsetX}, ${offsetY})`}>
           {barriers.map((poly, idx) => {
-            const pointsStr = poly.map((p) => `${p.x},${p.y}`).join(' ');
+            const points = poly.map((p) => `${p.x},${p.y}`).join(' ');
             return (
               <Polygon
                 key={idx}
-                points={pointsStr}
+                points={points}
                 fill="rgba(255,0,0,0.3)"
                 stroke="red"
                 strokeWidth={2}
@@ -159,7 +184,7 @@ export default function ArcadeScreen() {
         </G>
       </Svg>
 
-      {/* Player (always drawn at screen center) */}
+      {/* 3) Player always drawn at screen center (via Player.tsx logic) */}
       <Player
         x={0}
         y={0}
@@ -168,20 +193,16 @@ export default function ArcadeScreen() {
         isDashing={false}
       />
 
-      {/* GameControls */}
+      {/* 4) Dual joysticks for movement + shooting */}
       <GameController
-        onMove={(dx, dy, dir) => {
-          handleMove(dx, dy, dir);
-          // Also save dx, dy so animate() can do continuous movement
-          setJoystickDirection({ dx, dy });
-        }}
+        onMove={(dx, dy, dir) => handleMove(dx, dy, dir)}
         onShoot={handleShoot}
         onDash={() => console.log('Dash!')}
         onSpecial={() => console.log('Special!')}
-        onUseItem={() => console.log('Use Item!')}
+        onUseItem={() => console.log('Use item!')}
       />
 
-      {/* Pause Button */}
+      {/* 5) Pause button */}
       <TouchableOpacity
         onPress={() => setIsPaused(true)}
         style={styles.pauseButton}
@@ -189,7 +210,7 @@ export default function ArcadeScreen() {
         <Text style={styles.pauseText}>Pause</Text>
       </TouchableOpacity>
 
-      {/* Pause Menu */}
+      {/* 6) Pause modal */}
       <Modal visible={isPaused} transparent animationType="fade">
         <View style={styles.pauseMenu}>
           <Text style={styles.pauseText}>Game Paused</Text>
@@ -205,9 +226,9 @@ export default function ArcadeScreen() {
   );
 }
 
-// ——————————————————————————————————
-// Styles
-// ——————————————————————————————————
+/* ----------------------------------------------------------------
+   Styles
+---------------------------------------------------------------- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -225,27 +246,27 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     right: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     padding: 10,
     borderRadius: 5,
     zIndex: 9999,
   },
   pauseText: {
-    color: 'white',
+    color: '#fff',
     fontSize: 16,
   },
   pauseMenu: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
   menuButton: {
+    marginTop: 20,
     padding: 15,
-    marginVertical: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255,255,255,0.3)',
     borderRadius: 5,
-    alignItems: 'center',
     width: '50%',
+    alignItems: 'center',
   },
 });
