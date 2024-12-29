@@ -1,10 +1,17 @@
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, PanResponder, PanResponderGestureState, Text, TouchableOpacity } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  PanResponder,
+  PanResponderGestureState,
+  Text,
+  TouchableOpacity,
+} from 'react-native';
 import { Direction } from '../constants/types';
 
 type GameControllerProps = {
   onMove: (dx: number, dy: number, direction: Direction) => void;
-  onShoot: (dx: number, dy: number) => void; // Shooting joystick handler
+  onShoot: (dx: number, dy: number) => void;
   onDash: () => void;
   onSpecial: () => void;
   onUseItem: () => void;
@@ -14,6 +21,26 @@ const JOYSTICK_SIZE = 100;
 const KNOB_SIZE = 50;
 const MAX_RADIUS = (JOYSTICK_SIZE - KNOB_SIZE) / 2;
 
+/**
+ * Convert angle (in degrees) to a Direction.
+ * angle=0 => 'right', angle=+90 => 'down', angle=-90 => 'up', ±180 => 'left'
+ */
+const getDirectionFromAngle = (angleDeg: number): Direction => {
+  let angle = angleDeg;
+  if (angle > 180) angle -= 360;
+  if (angle < -180) angle += 360;
+
+  if (angle >= -22.5 && angle <= 22.5) return 'right';         // ~0°
+  if (angle > 22.5 && angle <= 67.5) return 'southeast';       // +45°
+  if (angle > 67.5 && angle <= 112.5) return 'down';           // +90°
+  if (angle > 112.5 && angle <= 157.5) return 'southwest';     // +135°
+  if (angle > 157.5 || angle <= -157.5) return 'left';         // ±180°
+  if (angle > -157.5 && angle <= -112.5) return 'northwest';   // -135°
+  if (angle > -112.5 && angle <= -67.5) return 'up';           // -90°
+  if (angle > -67.5 && angle <= -22.5) return 'northeast';      // -45°
+  return 'down';
+};
+
 const GameController: React.FC<GameControllerProps> = ({
   onMove,
   onShoot,
@@ -21,80 +48,74 @@ const GameController: React.FC<GameControllerProps> = ({
   onSpecial,
   onUseItem,
 }) => {
+  // State for movement joystick knob
   const [movementKnobX, setMovementKnobX] = useState(0);
   const [movementKnobY, setMovementKnobY] = useState(0);
+
+  // State for shooting joystick knob
   const [shootKnobX, setShootKnobX] = useState(0);
   const [shootKnobY, setShootKnobY] = useState(0);
 
-  // Utility to determine direction from angle
-  const getDirectionFromAngle = (angle: number): Direction => {
-    if (angle >= -22.5 && angle <= 22.5) return 'right';
-    if (angle > 22.5 && angle <= 67.5) return 'northeast';
-    if (angle > 67.5 && angle <= 112.5) return 'up';
-    if (angle > 112.5 && angle <= 157.5) return 'northwest';
-    if (angle > 157.5 || angle <= -157.5) return 'left';
-    if (angle > -157.5 && angle <= -112.5) return 'southwest';
-    if (angle > -112.5 && angle <= -67.5) return 'down';
-    if (angle > -67.5 && angle <= -22.5) return 'southeast';
-    return 'down';
-  };
-
-  // PanResponder for movement joystick
+  // ——————————————————— Movement Joystick ———————————————————
   const movementPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
-        setMovementKnobX(0);
-        setMovementKnobY(0);
-        onMove(0, 0, 'down');
+        // Could reset or do something on press
       },
-      onPanResponderMove: (e, gestureState: PanResponderGestureState) => {
-        let dx = gestureState.dx;
-        let dy = -gestureState.dy; // Flip Y-axis for screen space
+      onPanResponderMove: (_, gesture: PanResponderGestureState) => {
+        // Flip the gesture.dy if you want physically dragging up => negative
+        let dx = gesture.dx;
+        let dy = gesture.dy;
 
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance > MAX_RADIUS) {
-          const ratio = MAX_RADIUS / distance;
+        // Constrain knob movement
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > MAX_RADIUS) {
+          const ratio = MAX_RADIUS / dist;
           dx *= ratio;
           dy *= ratio;
         }
 
+        // Update joystick knob position visually
         setMovementKnobX(dx);
         setMovementKnobY(dy);
 
-        const normalizedDX = dx / MAX_RADIUS;
-        const normalizedDY = dy / MAX_RADIUS;
+        // Normalize for your game logic
+        const normDx = dx / MAX_RADIUS;
+        const normDy = dy / MAX_RADIUS;
 
-        const angle = Math.atan2(normalizedDY, normalizedDX) * (180 / Math.PI);
+        // Convert to angle => direction
+        const angle = Math.atan2(normDy, normDx) * (180 / Math.PI);
         const direction = getDirectionFromAngle(angle);
 
-        onMove(normalizedDX, normalizedDY, direction);
+        // Callback to parent
+        onMove(normDx, normDy, direction);
       },
       onPanResponderRelease: () => {
+        // Return knob to center
         setMovementKnobX(0);
         setMovementKnobY(0);
+        // Stop movement in parent
         onMove(0, 0, 'down');
       },
     })
   ).current;
 
-  // PanResponder for shooting joystick
-  // Shooting Joystick
+  // ——————————————————— Shooting Joystick ———————————————————
   const shootPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
         setShootKnobX(0);
         setShootKnobY(0);
-        onShoot(0, 0); // Stop shooting on release
       },
-      onPanResponderMove: (e, gestureState: PanResponderGestureState) => {
-        let dx = gestureState.dx;
-        let dy = -gestureState.dy; // Flip Y-axis
+      onPanResponderMove: (_, gesture: PanResponderGestureState) => {
+        let dx = gesture.dx;
+        let dy = gesture.dy;
 
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        if (distance > MAX_RADIUS) {
-          const ratio = MAX_RADIUS / distance;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > MAX_RADIUS) {
+          const ratio = MAX_RADIUS / dist;
           dx *= ratio;
           dy *= ratio;
         }
@@ -102,47 +123,61 @@ const GameController: React.FC<GameControllerProps> = ({
         setShootKnobX(dx);
         setShootKnobY(dy);
 
-        const normalizedDX = dx / MAX_RADIUS;
-        const normalizedDY = dy / MAX_RADIUS;
+        // Normalized
+        const normDx = dx / MAX_RADIUS;
+        const normDy = dy / MAX_RADIUS;
 
-        onShoot(normalizedDX, normalizedDY); // Send normalized values
+        // Callback for shooting direction
+        onShoot(normDx, normDy);
       },
       onPanResponderRelease: () => {
         setShootKnobX(0);
         setShootKnobY(0);
-        onShoot(0, 0); // Stop shooting on release
+        onShoot(0, 0);
       },
     })
   ).current;
 
-
   return (
     <View style={styles.container}>
-      {/* Movement Joystick */}
-      <View style={styles.movementJoystickContainer} {...movementPanResponder.panHandlers}>
+
+      {/* Movement Joystick at bottom-left */}
+      <View
+        style={styles.movementJoystickContainer}
+        {...movementPanResponder.panHandlers}
+      >
         <View
           style={[
             styles.knob,
             {
-              transform: [{ translateX: movementKnobX }, { translateY: movementKnobY }],
+              transform: [
+                { translateX: movementKnobX },
+                { translateY: movementKnobY },
+              ],
             },
           ]}
         />
       </View>
 
-      {/* Shooting Joystick */}
-      <View style={styles.shootingJoystickContainer} {...shootPanResponder.panHandlers}>
+      {/* Shooting Joystick at bottom-right */}
+      <View
+        style={styles.shootingJoystickContainer}
+        {...shootPanResponder.panHandlers}
+      >
         <View
           style={[
             styles.knob,
             {
-              transform: [{ translateX: shootKnobX }, { translateY: shootKnobY }],
+              transform: [
+                { translateX: shootKnobX },
+                { translateY: shootKnobY },
+              ],
             },
           ]}
         />
       </View>
 
-      {/* Diamond Layout Buttons */}
+      {/* Example Action Buttons */}
       <View style={styles.actionButtonsContainer}>
         <TouchableOpacity style={[styles.button, styles.topButton]} onPress={onSpecial}>
           <Text style={styles.buttonText}>Special</Text>
@@ -154,13 +189,20 @@ const GameController: React.FC<GameControllerProps> = ({
           <Text style={styles.buttonText}>Use</Text>
         </TouchableOpacity>
       </View>
+
     </View>
   );
 };
 
+export default GameController;
+
+/* ---------------------------------------------------
+   Styles
+--------------------------------------------------- */
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    // This container is absolutely covering the screen
+    // so joysticks appear on top of the game world
     position: 'absolute',
     zIndex: 999,
     width: '100%',
@@ -195,10 +237,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
   actionButtonsContainer: {
+    // Additional UI buttons in a diamond or some layout
     position: 'absolute',
     bottom: 200,
     right: 100,
-    width: 200, // Ensure enough space for a diamond layout
+    width: 200,
     height: 200,
     justifyContent: 'center',
     alignItems: 'center',
@@ -225,17 +268,9 @@ const styles = StyleSheet.create({
     left: 0,
     top: 70,
   },
-  rightButton: {
-    position: 'absolute',
-    right: 0,
-    top: 70,
-  },
   bottomButton: {
     position: 'absolute',
     bottom: 0,
     left: 70,
   },
 });
-
-
-export default GameController;
