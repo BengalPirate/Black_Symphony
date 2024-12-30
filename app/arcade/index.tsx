@@ -185,7 +185,7 @@ export default function ArcadeScreen() {
   useEffect(() => {
     const staminaInterval = setInterval(() => {
       setStaminaFrameIndex((prev) => (prev + 1) % staminaFrames.length);
-    }, 100); // Stamina: animate every 220ms
+    }, 70); // Stamina: animate every 220ms
     return () => clearInterval(staminaInterval);
   }, []);
 
@@ -239,14 +239,14 @@ export default function ArcadeScreen() {
       </View>
 
       {/* SPECIAL ICON (2nd row, unique speed) */}
-      <View style={{ position: 'absolute', top: 300, left: 150 }}>
+      <View style={{ position: 'absolute', top: 350, left: 200 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={specialFrames[specialFrameIndex]}
           y={SPECIAL_Y}
-          width={64}
-          height={96}
-          scale={2}
+          width={32}
+          height={48}
+          scale={1}
         />
       </View>
 
