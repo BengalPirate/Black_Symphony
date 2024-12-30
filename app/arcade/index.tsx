@@ -12,6 +12,8 @@ import {
 import Svg, { G, Polygon } from 'react-native-svg';
 import Player from '../../components/Player';
 import GameController from '../../components/GameController';
+import Sprite from '@/components/Sprite';
+import spriteSheet from '../../assets/sprites/stat_sprites/stats.png';
 import { Direction } from '../../constants/types';
 import { HellscapeMap } from '../../assets/maps/HellscapeMap';
 import { movePlayer, Position } from '../../controllers/playerController';
@@ -20,7 +22,7 @@ import mapFullImage from '../../assets/maps/map_full.png';
 
 const initialWidth = Dimensions.get('window').width;
 const initialHeight = Dimensions.get('window').height;
-console.log(`[ArcadeScreen] initial device width=${initialWidth}, height=${initialHeight}`);
+//console.log(`[ArcadeScreen] initial device width=${initialWidth}, height=${initialHeight}`);
 
 interface DimensionsChangePayload {
   window: ScaledSize;
@@ -44,7 +46,7 @@ export default function ArcadeScreen() {
   }, []);
 
   // We use deviceWidth/deviceHeight instead of static SCREEN_WIDTH/SCREEN_HEIGHT
-  console.log(`[ArcadeScreen] current deviceWidth=${deviceWidth}, deviceHeight=${deviceHeight}`);
+  //console.log(`[ArcadeScreen] current deviceWidth=${deviceWidth}, deviceHeight=${deviceHeight}`);
 
   // Calculate total map size in “world coordinates.”
   const mapWidthPx = HellscapeMap.width * TILE_SIZE;
@@ -154,6 +156,51 @@ export default function ArcadeScreen() {
   const offsetX = deviceWidth/2 - playerWorldPos.x;
   const offsetY = deviceHeight/2 - playerWorldPos.y;
 
+  const heartFrames = [32, 64, 96, 128, 160, 192, 160, 128, 96, 64, 32];
+  const specialFrames = [32, 64, 96, 128, 160];
+  const staminaFrames = [32, 64, 96, 128, 160, 128, 96, 64, 32];
+  
+  // Row offsets in sprite sheet (for each icon):
+  const HEART_Y = 0;     // 1st row
+  const SPECIAL_Y = 96;  // 2nd row
+  const STAMINA_Y = 144; // 4th row
+
+  // ------------------------------------------
+  // 1) Heart has its own frame index + speed
+  // ------------------------------------------
+  const [heartFrameIndex, setHeartFrameIndex] = useState(0);
+
+  useEffect(() => {
+    const heartInterval = setInterval(() => {
+      setHeartFrameIndex((prev) => (prev + 1) % heartFrames.length);
+    }, 150); // Heart: animate every 150ms
+    return () => clearInterval(heartInterval);
+  }, []);
+
+  // ------------------------------------------
+  // 2) Stamina has its own frame index + speed
+  // ------------------------------------------
+  const [staminaFrameIndex, setStaminaFrameIndex] = useState(0);
+
+  useEffect(() => {
+    const staminaInterval = setInterval(() => {
+      setStaminaFrameIndex((prev) => (prev + 1) % staminaFrames.length);
+    }, 100); // Stamina: animate every 220ms
+    return () => clearInterval(staminaInterval);
+  }, []);
+
+  // ------------------------------------------
+  // 3) Special has its own frame index + speed
+  // ------------------------------------------
+  const [specialFrameIndex, setSpecialFrameIndex] = useState(0);
+
+  useEffect(() => {
+    const specialInterval = setInterval(() => {
+      setSpecialFrameIndex((prev) => (prev + 1) % specialFrames.length);
+    }, 70); // Special: animate every 300ms
+    return () => clearInterval(specialInterval);
+  }, []);  
+
   return (
     <View style={styles.container}>
       <View style={styles.mapContainer}>
@@ -166,6 +213,43 @@ export default function ArcadeScreen() {
           />
         </View>
       </View>
+
+      {/* HEART ICON (1st row, unique speed) */}
+      <View style={{ position: 'absolute', top: 0, left: 30 }}>
+        <Sprite
+          spriteSheet={spriteSheet}
+          x={heartFrames[heartFrameIndex]}
+          y={HEART_Y}
+          width={64}  // double 32
+          height={96} // double 48
+          scale={2}   // upscales the sheet
+        />
+      </View>
+
+      {/* STAMINA ICON (4th row, unique speed) */}
+      <View style={{ position: 'absolute', top: 50, left: 30 }}>
+        <Sprite
+          spriteSheet={spriteSheet}
+          x={staminaFrames[staminaFrameIndex]}
+          y={STAMINA_Y}
+          width={64}
+          height={96}
+          scale={2}
+        />
+      </View>
+
+      {/* SPECIAL ICON (2nd row, unique speed) */}
+      <View style={{ position: 'absolute', top: 300, left: 150 }}>
+        <Sprite
+          spriteSheet={spriteSheet}
+          x={specialFrames[specialFrameIndex]}
+          y={SPECIAL_Y}
+          width={64}
+          height={96}
+          scale={2}
+        />
+      </View>
+
 
       <Svg style={StyleSheet.absoluteFill}>
         <G transform={`translate(${offsetX}, ${offsetY})`}>
