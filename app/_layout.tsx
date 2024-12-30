@@ -1,15 +1,17 @@
-// app/_layout.tsx (Adjust if needed based on your project structure)
+// app/_layout.tsx (Adjust paths as needed)
+
 // --------------------------------------------------------------------------------
 // A Layout component that:
 //   1) Locks orientation to LANDSCAPE
 //   2) Plays random .mp3 tracks from /assets/music/*
-//   3) Loops tracks indefinitely, picking a new random track after each finishes
-//   4) Displays "TitleScreen1.mp4" behind child screens if "playBackground" is true
-//   5) Lets you fade out music with "fadeOutMusicAndStop" (e.g. on menu selection)
-//   6) Uses a "manual loadAsync" approach (no .createAsync)
-//   7) Handles repeated fade-out calls gracefully by copying the sound ref
+//   3) Loops tracks indefinitely, picking new random track after each finishes
+//   4) Displays a random TitleScreen?.mp4 behind child screens if "playBackground" is true
+//   5) Lets you fade out music with "fadeOutMusicAndStop"
+//   6) Uses a "manual loadAsync" approach (no createAsync)
+//   7) Handles repeated fade-out calls gracefully (copies the sound ref)
+//   8) Randomly picks among TitleScreen1.mp4, TitleScreen2.mp4, TitleScreen3.mp4
 //
-// Note: We remove references to InterruptionModeIOS/Android (undefined in expo-av@15.x).
+// Note: We removed references to InterruptionModeIOS/Android (undefined in expo-av@15.x).
 // --------------------------------------------------------------------------------
 
 import React, {
@@ -48,7 +50,7 @@ export default function Layout() {
   // Store the current Sound object in a ref
   const soundRef = useRef<ExpoAv.Audio.Sound | null>(null);
 
-  // List of possible music tracks
+  // A list of possible music tracks
   const trackList = [
     require('../assets/music/track1.mp3'),
     require('../assets/music/track2.mp3'),
@@ -58,6 +60,16 @@ export default function Layout() {
     require('../assets/music/track6.mp3'),
     require('../assets/music/track7.mp3'),
   ];
+
+  // A list of possible background videos
+  const videoList = [
+    require('../assets/videos/TitleScreen1.mp4'),
+    require('../assets/videos/TitleScreen2.mp4'),
+    require('../assets/videos/TitleScreen3.mp4'),
+  ];
+
+  // We'll store which random video was picked here
+  const [selectedVideo, setSelectedVideo] = useState(videoList[0]);
 
   // Lock orientation to LANDSCAPE once
   useEffect(() => {
@@ -117,7 +129,6 @@ export default function Layout() {
       setMusicActive(true);
 
       try {
-        // We'll just set the minimal properties that exist in expo-av@15.x
         await ExpoAv.Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           playsInSilentModeIOS: true,
@@ -129,7 +140,7 @@ export default function Layout() {
         console.log('Error calling setAudioModeAsync:', err);
       }
 
-      // Begin looping tracks
+      // Begin looping random tracks
       await playNextRandomTrack();
     }
   }, [musicActive, playNextRandomTrack]);
@@ -141,7 +152,7 @@ export default function Layout() {
     // Hide the background video
     setPlayBackground(false);
 
-    // Copy the current sound (if any) and reset ref immediately
+    // Copy the current sound (if any) and reset ref
     const currentSound = soundRef.current;
     soundRef.current = null;
 
@@ -173,14 +184,19 @@ export default function Layout() {
   }, []);
 
   // -----------------------------------------------------------------------------
-  // (D) Watch "playBackground". If true, start the music/video
+  // (D) Watch "playBackground". If true, pick random video + start music
   // -----------------------------------------------------------------------------
   useEffect(() => {
     if (playBackground) {
+      // Pick a random video from the list
+      const randomIndex = Math.floor(Math.random() * videoList.length);
+      setSelectedVideo(videoList[randomIndex]);
+
+      // Start the music
       startMusic();
     }
-    // if false, we rely on fadeOutMusicAndStop() to handle stopping
-  }, [playBackground, startMusic]);
+    // If false, we rely on fadeOutMusicAndStop() to handle stopping
+  }, [playBackground, startMusic, videoList]);
 
   // -----------------------------------------------------------------------------
   // Render
@@ -196,10 +212,10 @@ export default function Layout() {
       <StatusBar hidden />
 
       <View style={{ flex: 1 }}>
-        {/* If "playBackground" is true, show TitleScreen1.mp4 behind everything */}
+        {/* If "playBackground" is true, show one of the TitleScreen?.mp4 behind everything */}
         {playBackground && (
           <Video
-            source={require('../assets/videos/TitleScreen1.mp4')}
+            source={selectedVideo}            // The random pick
             style={StyleSheet.absoluteFill}
             resizeMode={ResizeMode.COVER}
             shouldPlay
