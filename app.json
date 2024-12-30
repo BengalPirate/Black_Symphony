@@ -17,6 +17,11 @@
         "backgroundColor": "#ffffff"
       }
     },
+    "androidStatusBar": {
+      "hidden": true,
+      "backgroundColor": "#000000",
+      "barStyle": "light-content"
+    },
     "web": {
       "bundler": "metro",
       "output": "static",
@@ -32,7 +37,9 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-video",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

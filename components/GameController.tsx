@@ -23,21 +23,21 @@ const MAX_RADIUS = (JOYSTICK_SIZE - KNOB_SIZE) / 2;
 
 /**
  * Convert angle (in degrees) to a Direction.
- * angle=0 => 'right', angle=+90 => 'down', angle=-90 => 'up', ±180 => 'left'
+ * angle=0 => 'right', +90 => 'down', -90 => 'up', ±180 => 'left'
  */
 const getDirectionFromAngle = (angleDeg: number): Direction => {
   let angle = angleDeg;
   if (angle > 180) angle -= 360;
   if (angle < -180) angle += 360;
 
-  if (angle >= -22.5 && angle <= 22.5) return 'right';         // ~0°
-  if (angle > 22.5 && angle <= 67.5) return 'southeast';       // +45°
-  if (angle > 67.5 && angle <= 112.5) return 'down';           // +90°
-  if (angle > 112.5 && angle <= 157.5) return 'southwest';     // +135°
-  if (angle > 157.5 || angle <= -157.5) return 'left';         // ±180°
-  if (angle > -157.5 && angle <= -112.5) return 'northwest';   // -135°
-  if (angle > -112.5 && angle <= -67.5) return 'up';           // -90°
-  if (angle > -67.5 && angle <= -22.5) return 'northeast';      // -45°
+  if (angle >= -22.5 && angle <= 22.5) return 'right';       
+  if (angle > 22.5 && angle <= 67.5) return 'southeast';     
+  if (angle > 67.5 && angle <= 112.5) return 'down';         
+  if (angle > 112.5 && angle <= 157.5) return 'southwest';   
+  if (angle > 157.5 || angle <= -157.5) return 'left';       
+  if (angle > -157.5 && angle <= -112.5) return 'northwest';
+  if (angle > -112.5 && angle <= -67.5) return 'up';
+  if (angle > -67.5 && angle <= -22.5) return 'northeast';
   return 'down';
 };
 
@@ -48,27 +48,23 @@ const GameController: React.FC<GameControllerProps> = ({
   onSpecial,
   onUseItem,
 }) => {
-  // State for movement joystick knob
+  // Movement joystick knob
   const [movementKnobX, setMovementKnobX] = useState(0);
   const [movementKnobY, setMovementKnobY] = useState(0);
 
-  // State for shooting joystick knob
+  // Shooting joystick knob
   const [shootKnobX, setShootKnobX] = useState(0);
   const [shootKnobY, setShootKnobY] = useState(0);
 
-  // ——————————————————— Movement Joystick ———————————————————
+  /* ------------------ Movement Joystick ------------------ */
   const movementPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        // Could reset or do something on press
-      },
       onPanResponderMove: (_, gesture: PanResponderGestureState) => {
-        // Flip the gesture.dy if you want physically dragging up => negative
         let dx = gesture.dx;
         let dy = gesture.dy;
 
-        // Constrain knob movement
+        // Constrain knob within MAX_RADIUS
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist > MAX_RADIUS) {
           const ratio = MAX_RADIUS / dist;
@@ -76,32 +72,28 @@ const GameController: React.FC<GameControllerProps> = ({
           dy *= ratio;
         }
 
-        // Update joystick knob position visually
         setMovementKnobX(dx);
         setMovementKnobY(dy);
 
-        // Normalize for your game logic
+        // Normalize => [-1..1]
         const normDx = dx / MAX_RADIUS;
         const normDy = dy / MAX_RADIUS;
 
-        // Convert to angle => direction
+        // Convert angle => direction
         const angle = Math.atan2(normDy, normDx) * (180 / Math.PI);
         const direction = getDirectionFromAngle(angle);
 
-        // Callback to parent
         onMove(normDx, normDy, direction);
       },
       onPanResponderRelease: () => {
-        // Return knob to center
         setMovementKnobX(0);
         setMovementKnobY(0);
-        // Stop movement in parent
         onMove(0, 0, 'down');
       },
     })
   ).current;
 
-  // ——————————————————— Shooting Joystick ———————————————————
+  /* ------------------ Shooting Joystick ------------------ */
   const shootPanResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -123,11 +115,8 @@ const GameController: React.FC<GameControllerProps> = ({
         setShootKnobX(dx);
         setShootKnobY(dy);
 
-        // Normalized
         const normDx = dx / MAX_RADIUS;
         const normDy = dy / MAX_RADIUS;
-
-        // Callback for shooting direction
         onShoot(normDx, normDy);
       },
       onPanResponderRelease: () => {
@@ -140,8 +129,7 @@ const GameController: React.FC<GameControllerProps> = ({
 
   return (
     <View style={styles.container}>
-
-      {/* Movement Joystick at bottom-left */}
+      {/* Movement Joystick (bottom-left) */}
       <View
         style={styles.movementJoystickContainer}
         {...movementPanResponder.panHandlers}
@@ -159,7 +147,7 @@ const GameController: React.FC<GameControllerProps> = ({
         />
       </View>
 
-      {/* Shooting Joystick at bottom-right */}
+      {/* Shooting Joystick (bottom-right) */}
       <View
         style={styles.shootingJoystickContainer}
         {...shootPanResponder.panHandlers}
@@ -177,37 +165,46 @@ const GameController: React.FC<GameControllerProps> = ({
         />
       </View>
 
-      {/* Example Action Buttons */}
+      {/**
+       * Action Buttons
+       * We place them near bottom-left, but you can adjust bottom/right 
+       * to move them more to the right or left.
+       * 
+       * below:
+       * bottom: 15 (close to bottom)
+       * right: 60 (moved from 120 → 60 to push them further to the right)
+       */}
       <View style={styles.actionButtonsContainer}>
         <TouchableOpacity style={[styles.button, styles.topButton]} onPress={onSpecial}>
           <Text style={styles.buttonText}>Special</Text>
         </TouchableOpacity>
+
         <TouchableOpacity style={[styles.button, styles.leftButton]} onPress={onDash}>
           <Text style={styles.buttonText}>Dash</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.button, styles.bottomButton]} onPress={onUseItem}>
+
+        <TouchableOpacity style={[styles.button, styles.rightButton]} onPress={onUseItem}>
           <Text style={styles.buttonText}>Use</Text>
         </TouchableOpacity>
       </View>
-
     </View>
   );
 };
 
 export default GameController;
 
-/* ---------------------------------------------------
+/* ----------------------------------------------------------------
    Styles
---------------------------------------------------- */
+---------------------------------------------------------------- */
 const styles = StyleSheet.create({
   container: {
-    // This container is absolutely covering the screen
-    // so joysticks appear on top of the game world
     position: 'absolute',
     zIndex: 999,
     width: '100%',
     height: '100%',
   },
+
+  // Movement Joystick (bottom-left)
   movementJoystickContainer: {
     position: 'absolute',
     bottom: 50,
@@ -219,6 +216,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
+  // Shooting Joystick (bottom-right)
   shootingJoystickContainer: {
     position: 'absolute',
     bottom: 50,
@@ -230,22 +229,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   knob: {
     width: KNOB_SIZE,
     height: KNOB_SIZE,
     borderRadius: KNOB_SIZE / 2,
     backgroundColor: 'rgba(0,0,0,0.6)',
   },
+
+  /**
+   * Action Buttons container:
+   *  - bottom: 15 => near the bottom edge
+   *  - right: 60 => moved more to the right side 
+   *                (the smaller this value, the farther to the right it goes)
+   */
   actionButtonsContainer: {
-    // Additional UI buttons in a diamond or some layout
     position: 'absolute',
-    bottom: 200,
-    right: 100,
+    bottom: 15,
+    right: 40, 
     width: 200,
     height: 200,
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   button: {
     width: 60,
     height: 60,
@@ -254,23 +261,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   buttonText: {
     color: '#000',
     fontSize: 12,
   },
+
+  // "Special" at top:0, left:70
   topButton: {
     position: 'absolute',
     top: 0,
-    left: 70,
+    left: 75,
   },
+
+  // "Dash" at top:70, left:0
   leftButton: {
     position: 'absolute',
-    left: 0,
-    top: 70,
+    left: 20,
+    top: 60,
   },
-  bottomButton: {
+
+  // "Use" horizontally aligned with "Special"
+  rightButton: {
     position: 'absolute',
-    bottom: 0,
-    left: 70,
+    top: 8,
+    left: 150,
   },
 });
