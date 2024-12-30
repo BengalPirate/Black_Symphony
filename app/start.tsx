@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import * as ExpoAv from 'expo-av';           // <-- NEW: Import expo-av
 import { BgVideoContext } from '../app/_layout';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -21,9 +22,12 @@ export default function StartScreen() {
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const [showPressStart, setShowPressStart] = useState(false);
-
-  // Whether finallogo.mp4 has completely ended
   const [videoEnded, setVideoEnded] = useState(false);
+
+  // ——————————————
+  //  Sound ref
+  // ——————————————
+  const logoSoundRef = useRef<ExpoAv.Audio.Sound | null>(null);
 
   // Flicker animation for "Press Start"
   useEffect(() => {
@@ -47,12 +51,58 @@ export default function StartScreen() {
     }
   }, [showPressStart, fadeAnim]);
 
+  // ——————————————————————————————————
+  // Whenever the final logo video is NOT ended yet, play finallogo_sound.mp3
+  // As soon as it ends, unload the sound.
+  // ——————————————————————————————————
+  useEffect(() => {
+    async function playFinallogoSound() {
+      // If the video is still playing, load & play the short MP3
+      if (!videoEnded) {
+        // 1) Wait 2 seconds before playing
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // If there's already a sound loaded, unload it
+        if (logoSoundRef.current) {
+          await logoSoundRef.current.unloadAsync();
+          logoSoundRef.current = null;
+        }
+        // Create a Sound object
+        const soundObj = new ExpoAv.Audio.Sound();
+        // Load the short MP3
+        await soundObj.loadAsync(require('../assets/music/finallogo_sound.mp3'));
+        // Play
+        await soundObj.playAsync();
+        // Store ref so we can stop/unload if needed
+        logoSoundRef.current = soundObj;
+      } else {
+        // Video ended => no need for the sound
+        if (logoSoundRef.current) {
+          await logoSoundRef.current.unloadAsync();
+          logoSoundRef.current = null;
+        }
+      }
+    }
+
+    playFinallogoSound();
+
+    // Cleanup when unmounting this screen
+    return () => {
+      if (logoSoundRef.current) {
+        logoSoundRef.current.unloadAsync();
+        logoSoundRef.current = null;
+      }
+    };
+  }, [videoEnded]);
+
+  // ——————————————————————————————————
+  // Called on each playback status update of finallogo.mp4
+  // ——————————————————————————————————
   const handleVideoStatus = (status: AVPlaybackStatus) => {
     if (status.isLoaded && status.didJustFinish) {
-      // finallogo.mp4 is done
       setVideoEnded(true);
       setShowPressStart(true);
-      // Start playing TitleScreen1.mp4 in _layout.tsx
+      // Start playing the random background video + music in _layout.tsx
       setPlayBackground(true);
     }
   };
@@ -61,11 +111,10 @@ export default function StartScreen() {
     <View
       style={[
         styles.container,
-        // Only black while finallogo.mp4 is playing
         { backgroundColor: videoEnded ? 'transparent' : '#000' },
       ]}
     >
-      {/* Show the final logo until it ends */}
+      {/* Show the final logo video until it ends */}
       {!videoEnded && (
         <Video
           source={require('../assets/videos/finallogo.mp4')}
@@ -77,6 +126,7 @@ export default function StartScreen() {
         />
       )}
 
+      {/* After video ends, show the "Press Start" screen */}
       {showPressStart && (
         <>
           <Image
@@ -97,10 +147,12 @@ export default function StartScreen() {
   );
 }
 
+// ———————————————————————————————————————————————————
+// Styles
+// ———————————————————————————————————————————————————
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    // (backgroundColor is conditionally overridden above)
     justifyContent: 'center',
     alignItems: 'center',
   },
