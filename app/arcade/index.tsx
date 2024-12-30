@@ -156,9 +156,9 @@ export default function ArcadeScreen() {
   const offsetX = deviceWidth/2 - playerWorldPos.x;
   const offsetY = deviceHeight/2 - playerWorldPos.y;
 
-  const heartFrames = [32, 64, 96, 128, 160, 192, 160, 128, 96, 64, 32];
+  const heartFrames = [32, 64, 96, 128, 160, 192, 160, 128, 96, 64];
   const specialFrames = [32, 64, 96, 128, 160];
-  const staminaFrames = [32, 64, 96, 128, 160, 128, 96, 64, 32];
+  const staminaFrames = [32, 64, 96, 128, 160, 128, 96, 64];
   
   // Row offsets in sprite sheet (for each icon):
   const HEART_Y = 0;     // 1st row
@@ -227,7 +227,7 @@ export default function ArcadeScreen() {
       </View>
 
       {/* STAMINA ICON (4th row, unique speed) */}
-      <View style={{ position: 'absolute', top: 50, left: 30 }}>
+      <View style={{ position: 'absolute', top: 45, left: 30 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={staminaFrames[staminaFrameIndex]}
