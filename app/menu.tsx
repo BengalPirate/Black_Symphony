@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 
 export default function MenuScreen() {
@@ -7,7 +7,10 @@ export default function MenuScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Game Menu</Text>
+      <Image
+        source={require('../assets/images/blacksymphonylogo.png')}
+        style={styles.logo}
+      />
 
       <View style={styles.menuContainer}>
         <TouchableOpacity onPress={() => {}} style={styles.menuItem}>
@@ -30,34 +33,38 @@ export default function MenuScreen() {
   );
 }
 
+// —————————————————————————————————————————
+// Styles
+// —————————————————————————————————————————
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#222',
-    justifyContent: 'center',
+    // Removed backgroundColor: '#222' so the random background video or black background can show
     alignItems: 'center',
   },
-  title: {
-    fontSize: 28, // Reduced title size
-    color: '#fff',
-    marginBottom: 20,
+  logo: {
+    marginTop: 0,
+    width: 500,
+    height: 120,
+    resizeMode: 'contain',
   },
   menuContainer: {
+    marginTop: 0,
     width: '100%',
     alignItems: 'center',
   },
   menuItem: {
-    padding: 10, // Reduced padding
-    marginVertical: 8, // Reduced margin for spacing
-    backgroundColor: '#333',
-    width: '70%', // Adjusted width to fit
-    maxWidth: 250, // Ensures consistent size across devices
+    padding: 10,
+    marginVertical: 8,
+    backgroundColor: '#333', // If you also want these to be translucent or see-through, remove this
+    width: '70%',
+    maxWidth: 250,
     borderRadius: 8,
     alignItems: 'center',
   },
   menuText: {
     color: '#fff',
-    fontSize: 20, // Slightly reduced font size
+    fontSize: 20,
     textAlign: 'center',
   },
 });
