@@ -2,7 +2,7 @@
 import React, { useContext } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { useRouter } from 'expo-router';
-import { BgVideoContext } from '../app/_layout';
+import { BgVideoContext } from './_layout';
 
 export default function MenuScreen() {
   const router = useRouter();
