@@ -159,11 +159,13 @@ export default function ArcadeScreen() {
   const heartFrames = [32, 64, 96, 128, 160, 192, 160, 128, 96, 64];
   const specialFrames = [32, 64, 96, 128, 160];
   const staminaFrames = [32, 64, 96, 128, 160, 128, 96, 64];
+  const shieldFrames = [0, 32, 64, 96, 128, 160, 128, 96, 64, 32]
   
   // Row offsets in sprite sheet (for each icon):
   const HEART_Y = 0;     // 1st row
   const SPECIAL_Y = 96;  // 2nd row
   const STAMINA_Y = 144; // 4th row
+  const SHIELD_Y =  192; // 5th row
 
   // ------------------------------------------
   // 1) Heart has its own frame index + speed
@@ -185,7 +187,7 @@ export default function ArcadeScreen() {
   useEffect(() => {
     const staminaInterval = setInterval(() => {
       setStaminaFrameIndex((prev) => (prev + 1) % staminaFrames.length);
-    }, 70); // Stamina: animate every 220ms
+    }, 70); // Stamina: animate every 70ms
     return () => clearInterval(staminaInterval);
   }, []);
 
@@ -197,8 +199,20 @@ export default function ArcadeScreen() {
   useEffect(() => {
     const specialInterval = setInterval(() => {
       setSpecialFrameIndex((prev) => (prev + 1) % specialFrames.length);
-    }, 70); // Special: animate every 300ms
+    }, 70); // Special: animate every 70ms
     return () => clearInterval(specialInterval);
+  }, []);  
+
+  // ------------------------------------------
+  // 4) Shield has its own frame index + speed
+  // ------------------------------------------
+  const [shieldFrameIndex, setShieldFrameIndex] = useState(0);
+
+  useEffect(() => {
+    const shieldInterval = setInterval(() => {
+      setShieldFrameIndex((prev) => (prev + 1) % specialFrames.length);
+    }, 300); // Special: animate every 300ms
+    return () => clearInterval(shieldInterval);
   }, []);  
 
   return (
@@ -250,6 +264,17 @@ export default function ArcadeScreen() {
         />
       </View>
 
+      {/* SPECIAL ICON (2nd row, unique speed) */}
+      <View style={{ position: 'absolute', top: 250, left: 200 }}>
+        <Sprite
+          spriteSheet={spriteSheet}
+          x={shieldFrames[shieldFrameIndex]}
+          y={SHIELD_Y}
+          width={32}
+          height={48}
+          scale={1}
+        />
+      </View>
 
       <Svg style={StyleSheet.absoluteFill}>
         <G transform={`translate(${offsetX}, ${offsetY})`}>
