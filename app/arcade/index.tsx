@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Modal,
@@ -7,21 +7,29 @@ import {
   StyleSheet,
   Dimensions,
   ScaledSize,
+  Platform,
 } from 'react-native';
 import Svg, { G, Polygon } from 'react-native-svg';
 import Player from '../../components/Player';
 import GameController from '../../components/GameController';
+import Sprite from '@/components/Sprite';
+import spriteSheet from '../../assets/sprites/stat_sprites/stats.png';
 import { Direction } from '../../constants/types';
 import { HellscapeMap } from '../../assets/maps/HellscapeMap';
 import { movePlayer, Position } from '../../controllers/playerController';
 import TiledMap from '../../components/TiledMap';
 import mapFullImage from '../../assets/maps/map_full.png';
-import { BgVideoContext } from '../_layout'; // Import context
-import { useRouter } from 'expo-router'; // Import router
 import ShieldBar from '@/components/playerstats/ShieldBar';
 import StaminaBar from '@/components/playerstats/StaminaBar';
 import HealthBar from '@/components/playerstats/HealthBar';
 import SpecialAttackBar from '@/components/playerstats/SpecialAttackBar';
+import { useRouter } from 'expo-router';
+
+// Add the missing interface
+interface DimensionsChangePayload {
+  window: ScaledSize;
+  screen: ScaledSize;
+}
 
 const initialWidth = Dimensions.get('window').width;
 const initialHeight = Dimensions.get('window').height;
@@ -30,20 +38,32 @@ const MOVE_SPEED = 20;
 const TILE_SIZE = 32;
 
 export default function ArcadeScreen() {
+  const router = useRouter();
   const [deviceWidth, setDeviceWidth] = useState(initialWidth);
   const [deviceHeight, setDeviceHeight] = useState(initialHeight);
+
+  useEffect(() => {
+    const handleDimChange = ({ window, screen }: DimensionsChangePayload) => {
+      // ...
+    };
+    const subscription = Dimensions.addEventListener('change', handleDimChange);
+    return () => subscription.remove();
+  }, []);
+
+  const mapWidthPx = HellscapeMap.width * TILE_SIZE;
+  const mapHeightPx = HellscapeMap.height * TILE_SIZE;
+
   const [playerWorldPos, setPlayerWorldPos] = useState<Position>({
-    x: (HellscapeMap.width * TILE_SIZE) / 2,
-    y: (HellscapeMap.height * TILE_SIZE) / 2,
+    x: mapWidthPx / 2,
+    y: mapHeightPx / 2,
   });
+
   const [direction, setDirection] = useState<Direction>('down');
   const [isMoving, setIsMoving] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [joystickDirection, setJoystickDirection] = useState({ dx: 0, dy: 0 });
 
   const frameRequestRef = useRef<number | null>(null);
-  const { fadeOutMusicAndStop } = useContext(BgVideoContext); // Access context
-  const router = useRouter(); // Initialize router
 
   const [barriers] = useState(() => {
     const polygons: { x: number; y: number }[][] = [];
@@ -67,11 +87,6 @@ export default function ArcadeScreen() {
     return polygons;
   });
 
-  const handlePausePress = (destination: '/menu') => {
-    fadeOutMusicAndStop(); // Fade out music
-    router.push(destination); // Navigate to the specified destination
-  };
-
   const handleMove = (dx: number, dy: number, newDirection: Direction) => {
     if (isPaused) return;
 
@@ -86,8 +101,8 @@ export default function ArcadeScreen() {
         const stepY = prevPos.y + dy * MOVE_SPEED;
         return movePlayer(
           {
-            x: Math.max(0, Math.min(HellscapeMap.width * TILE_SIZE, stepX)),
-            y: Math.max(0, Math.min(HellscapeMap.height * TILE_SIZE, stepY)),
+            x: Math.max(0, Math.min(mapWidthPx, stepX)),
+            y: Math.max(0, Math.min(mapHeightPx, stepY)),
           },
           dx * MOVE_SPEED,
           dy * MOVE_SPEED,
@@ -98,17 +113,21 @@ export default function ArcadeScreen() {
     setJoystickDirection({ dx, dy });
   };
 
+  const handleShoot = (dx: number, dy: number) => {
+    if (isPaused || dx === 0 && dy === 0) return;
+    console.log(`Shooting dx=${dx}, dy=${dy}`);
+  };
+
   const animate = () => {
     if (isPaused) return;
 
     const { dx, dy } = joystickDirection;
     if (dx !== 0 || dy !== 0) {
-      const length = Math.sqrt(dx * dx + dy * dy);
+      const length = Math.sqrt(dx*dx + dy*dy);
       if (length > 0.001) {
-        const ndx = (dx / length) * MOVE_SPEED;
-        const ndy = (dy / length) * MOVE_SPEED;
-
-        setPlayerWorldPos((prevPos) =>
+        const ndx = (dx/length)*MOVE_SPEED;
+        const ndy = (dy/length)*MOVE_SPEED;
+        setPlayerWorldPos((prevPos) => 
           movePlayer(
             { x: prevPos.x + ndx, y: prevPos.y + ndy },
             ndx,
@@ -130,20 +149,58 @@ export default function ArcadeScreen() {
     };
   }, [isPaused, joystickDirection, barriers]);
 
-  const offsetX = deviceWidth / 2 - playerWorldPos.x;
-  const offsetY = deviceHeight / 2 - playerWorldPos.y;
+  const offsetX = deviceWidth/2 - playerWorldPos.x;
+  const offsetY = deviceHeight/2 - playerWorldPos.y;
 
-  // ----- DEFINE THE MISSING STATS HERE! -----
+  const heartFrames = [32, 64, 96, 128, 160, 192, 160, 128, 96, 64];
+  const specialFrames = [32, 64, 96, 128, 160];
+  const staminaFrames = [32, 64, 96, 128, 160, 128, 96, 64];
+  const shieldFrames = [0, 32, 64, 96, 128, 160, 192, 192, 160, 128, 96, 64, 32, 0];
+  
+  const HEART_Y = 0;
+  const SPECIAL_Y = 96;
+  const STAMINA_Y = 144;
+  const SHIELD_Y = 192;
+
+  const [heartFrameIndex, setHeartFrameIndex] = useState(0);
+  const [staminaFrameIndex, setStaminaFrameIndex] = useState(0);
+  const [specialFrameIndex, setSpecialFrameIndex] = useState(0);
+  const [shieldFrameIndex, setShieldFrameIndex] = useState(0);
+
+  useEffect(() => {
+    const heartInterval = setInterval(() => {
+      setHeartFrameIndex((prev) => (prev + 1) % heartFrames.length);
+    }, 150);
+    return () => clearInterval(heartInterval);
+  }, []);
+
+  useEffect(() => {
+    const staminaInterval = setInterval(() => {
+      setStaminaFrameIndex((prev) => (prev + 1) % staminaFrames.length);
+    }, 70);
+    return () => clearInterval(staminaInterval);
+  }, []);
+
+  useEffect(() => {
+    const specialInterval = setInterval(() => {
+      setSpecialFrameIndex((prev) => (prev + 1) % specialFrames.length);
+    }, 70);
+    return () => clearInterval(specialInterval);
+  }, []);
+
+  useEffect(() => {
+    const shieldInterval = setInterval(() => {
+      setShieldFrameIndex((prev) => (prev + 1) % shieldFrames.length);
+    }, 100);
+    return () => clearInterval(shieldInterval);
+  }, []);
+
   const [playerHealth, setPlayerHealth] = useState(80);
   const [playerMaxHealth, setPlayerMaxHealth] = useState(100);
-
   const [playerStamina, setPlayerStamina] = useState(50);
   const [playerMaxStamina, setPlayerMaxStamina] = useState(100);
-
   const [playerSpecial, setPlayerSpecial] = useState(25);
   const [playerMaxSpecial, setPlayerMaxSpecial] = useState(100);
-
-  // Shield bar example
   const [currentShield, setCurrentShield] = useState(30);
   const [maxShield, setMaxShield] = useState(100);
 
@@ -160,43 +217,44 @@ export default function ArcadeScreen() {
         </View>
       </View>
 
-      {/* Health bar */}
       <HealthBar currentHealth={playerHealth} maxHealth={playerMaxHealth} />
-
-      {/* Stamina bar */}
       <StaminaBar currentStamina={playerStamina} maxStamina={playerMaxStamina} />
-
-      {/* Special Attack bar */}
       <SpecialAttackBar currentSpecial={playerSpecial} maxSpecial={playerMaxSpecial} />
-
-      {/* New Shield bar (positioned below the others in the example) */}
       <ShieldBar currentShield={currentShield} maxShield={maxShield} />
 
-      {/* HEART ICON (1st row, unique speed) */}
       <View style={{ position: 'absolute', top: 0, left: 30 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={heartFrames[heartFrameIndex]}
           y={HEART_Y}
-          width={64}  // double 32
-          height={96} // double 48
-          scale={2}   // upscales the sheet
+          width={48}
+          height={72}
+          scale={1.5}
         />
       </View>
 
-      {/* STAMINA ICON (4th row, unique speed) */}
-      <View style={{ position: 'absolute', top: 45, left: 30 }}>
+      <View style={{ position: 'absolute', top: 42, left: 30 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={staminaFrames[staminaFrameIndex]}
           y={STAMINA_Y}
-          width={64}
-          height={96}
-          scale={2}
+          width={48}
+          height={72}
+          scale={1.5}
         />
       </View>
 
-      {/* SPECIAL ICON (2nd row, unique speed) */}
+      <View style={{ position: 'absolute', top: 288, left: 200 }}>
+        <Sprite
+          spriteSheet={spriteSheet}
+          x={shieldFrames[shieldFrameIndex]}
+          y={SHIELD_Y}
+          width={32}
+          height={48}
+          scale={1}
+        />
+      </View>
+
       <View style={{ position: 'absolute', top: 330, left: 200 }}>
         <Sprite
           spriteSheet={spriteSheet}
@@ -208,29 +266,20 @@ export default function ArcadeScreen() {
         />
       </View>
 
-      {/* SHIELD ICON (2nd row, unique speed) */}
-      <View style={{ position: 'absolute', top: 270, left: 200 }}>
-        <Sprite
-          spriteSheet={spriteSheet}
-          x={shieldFrames[shieldFrameIndex]}
-          y={SHIELD_Y}
-          width={32}
-          height={48}
-          scale={1}
-        />
-      </View>
-
       <Svg style={StyleSheet.absoluteFill}>
         <G transform={`translate(${offsetX}, ${offsetY})`}>
-          {barriers.map((poly, idx) => (
-            <Polygon
-              key={idx}
-              points={poly.map((p) => `${p.x},${p.y}`).join(' ')}
-              fill="rgba(255,0,0,0.3)"
-              stroke="red"
-              strokeWidth={2}
-            />
-          ))}
+          {barriers.map((poly, idx) => {
+            const pointsStr = poly.map(p => `${p.x},${p.y}`).join(' ');
+            return (
+              <Polygon
+                key={idx}
+                points={pointsStr}
+                fill="rgba(255,0,0,0.3)"
+                stroke="red"
+                strokeWidth={2}
+              />
+            );
+          })}
         </G>
       </Svg>
 
@@ -246,9 +295,7 @@ export default function ArcadeScreen() {
 
       <GameController
         onMove={(dx, dy, dir) => handleMove(dx, dy, dir)}
-        onShoot={() => {
-          if (!isPaused) console.log('Shoot!');
-        }}
+        onShoot={handleShoot}
         onDash={() => {
           if (!isPaused) console.log('Dash!');
         }}
@@ -267,28 +314,23 @@ export default function ArcadeScreen() {
         <Text style={styles.pauseText}>Pause</Text>
       </TouchableOpacity>
 
-      <Modal visible={isPaused} transparent={true} animationType="fade">
-  <View style={styles.pauseMenu}>
-    <Text style={styles.pauseText}>Game Paused</Text>
-
-    {/* Resume Button */}
-    <TouchableOpacity
-      onPress={() => setIsPaused(false)}
-      style={styles.menuButton}
-    >
-      <Text style={styles.pauseText}>Resume</Text>
-    </TouchableOpacity>
-
-    {/* Quit Button */}
-    <TouchableOpacity
-      onPress={() => handlePausePress('/menu')}
-      style={styles.menuButton}
-    >
-      <Text style={styles.pauseText}>Quit</Text>
-    </TouchableOpacity>
-  </View>
-</Modal>
-
+      <Modal visible={isPaused} transparent animationType="fade">
+        <View style={styles.pauseMenu}>
+          <Text style={styles.pauseText}>Game Paused</Text>
+          <TouchableOpacity
+            onPress={() => setIsPaused(false)}
+            style={styles.menuButton}
+          >
+            <Text style={styles.pauseText}>Resume</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push('/menu')}
+            style={styles.menuButton}
+          >
+            <Text style={styles.pauseText}>Quit</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -310,28 +352,27 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     right: 20,
-    backgroundColor: '#3a3a3a', // Updated to darkish grey
+    backgroundColor: '#3a3a3a',
     padding: 10,
     borderRadius: 5,
     zIndex: 9999,
+  },
+  pauseText: {
+    color: '#fff',
+    fontSize: 16,
   },
   pauseMenu: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)', // Semi-transparent black background
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
   menuButton: {
-    marginVertical: 10, // Add spacing between buttons
+    marginVertical: 10,
     padding: 15,
-    backgroundColor: 'rgba(255,255,255,0.3)', // Semi-transparent white button background
+    backgroundColor: 'rgba(255,255,255,0.3)',
     borderRadius: 5,
     width: '50%',
     alignItems: 'center',
-  },
-  pauseText: {
-    color: '#fff',
-    fontSize: 20, // Larger font size for better readability
-    fontWeight: 'bold', // Bold text for emphasis
   },
 });
