@@ -9,7 +9,8 @@ interface ShieldBarProps {
 
 const ShieldBar: React.FC<ShieldBarProps> = ({ currentShield, maxShield }) => {
   const barWidth = 200;
-  const barHeight = 8;
+  const barHeight = 12;
+  const borderRadius = barHeight / 2; // To make the height fully rounded
 
   // Compute how full the shield bar is as a ratio of max
   const shieldRatio = currentShield / maxShield;
@@ -19,9 +20,24 @@ const ShieldBar: React.FC<ShieldBarProps> = ({ currentShield, maxShield }) => {
   return (
     <View style={[styles.container, { width: barWidth, height: barHeight }]}>
       {/* The empty (background) portion of the bar */}
-      <View style={[styles.background, { width: barWidth, height: barHeight }]} />
+      <View
+        style={[
+          styles.background,
+          { width: barWidth, height: barHeight, borderRadius },
+        ]}
+      />
       {/* The filled portion based on currentShield */}
-      <View style={[styles.foreground, { width: shieldWidth, height: barHeight }]} />
+      <View
+        style={[
+          styles.foreground,
+          {
+            width: shieldWidth,
+            height: barHeight,
+            borderTopRightRadius: borderRadius,
+            borderBottomRightRadius: borderRadius,
+          },
+        ]}
+      />
     </View>
   );
 };
@@ -30,13 +46,13 @@ const styles = StyleSheet.create({
   container: {
     position: 'absolute',
     // Example layout: place below the Special Attack bar
-    top: 290, 
-    left: 230,
+    top: 306, 
+    left: 232,
     zIndex: 9999,
   },
   background: {
     // “Empty” portion color
-    backgroundColor: '#555',
+    backgroundColor: '#888',
     position: 'absolute',
   },
   foreground: {

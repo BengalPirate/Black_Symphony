@@ -12,7 +12,8 @@ const SpecialAttackBar: React.FC<SpecialAttackBarProps> = ({
   maxSpecial,
 }) => {
   const barWidth = 200;
-  const barHeight = 8;
+  const barHeight = 12;
+  const borderRadius = barHeight / 2; // To make the height fully rounded
   
   // Calculate how 'full' the special bar is
   const specialRatio = currentSpecial / maxSpecial;
@@ -21,12 +22,22 @@ const SpecialAttackBar: React.FC<SpecialAttackBarProps> = ({
   return (
     <View style={[styles.container, { width: barWidth, height: barHeight }]}>
       {/* Background of the bar */}
-      <View style={[styles.background, { width: barWidth, height: barHeight }]} />
+      <View
+        style={[
+          styles.background,
+          { width: barWidth, height: barHeight, borderRadius },
+        ]}
+      />
       {/* Foreground / filled portion */}
       <View
         style={[
           styles.foreground,
-          { width: specialWidth, height: barHeight },
+          {
+            width: specialWidth,
+            height: barHeight,
+            borderTopRightRadius: borderRadius,
+            borderBottomRightRadius: borderRadius,
+          },
         ]}
       />
     </View>
@@ -36,8 +47,8 @@ const SpecialAttackBar: React.FC<SpecialAttackBarProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 350, // Adjust as needed (below HealthBar & StaminaBar)
-    left: 230,
+    top: 348, // Adjust as needed (below HealthBar & StaminaBar)
+    left: 232,
     zIndex: 9999,
   },
   background: {
