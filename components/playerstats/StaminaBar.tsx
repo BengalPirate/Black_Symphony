@@ -7,15 +7,32 @@ interface StaminaBarProps {
 }
 
 const StaminaBar: React.FC<StaminaBarProps> = ({ currentStamina, maxStamina }) => {
-  const barWidth = 200;
-  const barHeight = 16;
+  const barWidth = 350;
+  const barHeight = 12;
+  const borderRadius = barHeight / 2; // To make the height fully rounded
   const staminaRatio = currentStamina / maxStamina;
   const staminaWidth = barWidth * Math.max(0, Math.min(staminaRatio, 1));
+  
 
   return (
     <View style={[styles.container, { width: barWidth, height: barHeight }]}>
-      <View style={[styles.background, { width: barWidth, height: barHeight }]} />
-      <View style={[styles.foreground, { width: staminaWidth, height: barHeight }]} />
+      <View
+        style={[
+          styles.background,
+          { width: barWidth, height: barHeight, borderRadius },
+        ]}
+      />
+      <View
+        style={[
+          styles.foreground,
+          {
+            width: staminaWidth,
+            height: barHeight,
+            borderTopRightRadius: borderRadius,
+            borderBottomRightRadius: borderRadius,
+          },
+        ]}
+      />
     </View>
   );
 };
@@ -23,8 +40,8 @@ const StaminaBar: React.FC<StaminaBarProps> = ({ currentStamina, maxStamina }) =
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 85, // below health bar
-    left: 94,
+    top: 72, // below health bar
+    left: 78,
     zIndex: 9999,
   },
   background: {

@@ -264,21 +264,33 @@ export default function ArcadeScreen() {
           spriteSheet={spriteSheet}
           x={heartFrames[heartFrameIndex]}
           y={HEART_Y}
-          width={64}  // double 32
-          height={96} // double 48
-          scale={2}   // upscales the sheet
+          width={48}  // double 32
+          height={72} // double 48
+          scale={1.5}   // upscales the sheet
         />
       </View>
 
       {/* STAMINA ICON (4th row, unique speed) */}
-      <View style={{ position: 'absolute', top: 45, left: 30 }}>
+      <View style={{ position: 'absolute', top: 42, left: 30 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={staminaFrames[staminaFrameIndex]}
           y={STAMINA_Y}
-          width={64}
-          height={96}
-          scale={2}
+          width={48}
+          height={72}
+          scale={1.5}
+        />
+      </View>
+
+      {/* SHIELD ICON (2nd row, unique speed) */}
+      <View style={{ position: 'absolute', top: 288, left: 200 }}>
+        <Sprite
+          spriteSheet={spriteSheet}
+          x={shieldFrames[shieldFrameIndex]}
+          y={SHIELD_Y}
+          width={32}
+          height={48}
+          scale={1}
         />
       </View>
 
@@ -288,18 +300,6 @@ export default function ArcadeScreen() {
           spriteSheet={spriteSheet}
           x={specialFrames[specialFrameIndex]}
           y={SPECIAL_Y}
-          width={32}
-          height={48}
-          scale={1}
-        />
-      </View>
-
-      {/* SHIELD ICON (2nd row, unique speed) */}
-      <View style={{ position: 'absolute', top: 270, left: 200 }}>
-        <Sprite
-          spriteSheet={spriteSheet}
-          x={shieldFrames[shieldFrameIndex]}
-          y={SHIELD_Y}
           width={32}
           height={48}
           scale={1}
