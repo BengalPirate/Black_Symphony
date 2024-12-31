@@ -159,7 +159,7 @@ export default function ArcadeScreen() {
   const heartFrames = [32, 64, 96, 128, 160, 192, 160, 128, 96, 64];
   const specialFrames = [32, 64, 96, 128, 160];
   const staminaFrames = [32, 64, 96, 128, 160, 128, 96, 64];
-  const shieldFrames = [0, 32, 64, 96, 128, 160, 128, 96, 64, 32]
+  const shieldFrames = [0, 32, 64, 96, 128, 160, 192, 192, 160, 128, 96, 64, 32, 0]
   
   // Row offsets in sprite sheet (for each icon):
   const HEART_Y = 0;     // 1st row
@@ -210,8 +210,8 @@ export default function ArcadeScreen() {
 
   useEffect(() => {
     const shieldInterval = setInterval(() => {
-      setShieldFrameIndex((prev) => (prev + 1) % specialFrames.length);
-    }, 300); // Special: animate every 300ms
+      setShieldFrameIndex((prev) => (prev + 1) % shieldFrames.length);
+    }, 100); // Special: animate every 300ms
     return () => clearInterval(shieldInterval);
   }, []);  
 
@@ -264,8 +264,8 @@ export default function ArcadeScreen() {
         />
       </View>
 
-      {/* SPECIAL ICON (2nd row, unique speed) */}
-      <View style={{ position: 'absolute', top: 250, left: 200 }}>
+      {/* SHIELD ICON (2nd row, unique speed) */}
+      <View style={{ position: 'absolute', top: 300, left: 200 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={shieldFrames[shieldFrameIndex]}
