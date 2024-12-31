@@ -19,6 +19,10 @@ import { HellscapeMap } from '../../assets/maps/HellscapeMap';
 import { movePlayer, Position } from '../../controllers/playerController';
 import TiledMap from '../../components/TiledMap';
 import mapFullImage from '../../assets/maps/map_full.png';
+import ShieldBar from '@/components/playerstats/ShieldBar';
+import StaminaBar from '@/components/playerstats/StaminaBar';
+import HealthBar from '@/components/playerstats/HealthBar';
+import SpecialAttackBar from '@/components/playerstats/SpecialAttackBar';
 
 const initialWidth = Dimensions.get('window').width;
 const initialHeight = Dimensions.get('window').height;
@@ -215,6 +219,20 @@ export default function ArcadeScreen() {
     return () => clearInterval(shieldInterval);
   }, []);  
 
+  // ----- DEFINE THE MISSING STATS HERE! -----
+  const [playerHealth, setPlayerHealth] = useState(80);
+  const [playerMaxHealth, setPlayerMaxHealth] = useState(100);
+
+  const [playerStamina, setPlayerStamina] = useState(50);
+  const [playerMaxStamina, setPlayerMaxStamina] = useState(100);
+
+  const [playerSpecial, setPlayerSpecial] = useState(25);
+  const [playerMaxSpecial, setPlayerMaxSpecial] = useState(100);
+
+  // Shield bar example
+  const [currentShield, setCurrentShield] = useState(30);
+  const [maxShield, setMaxShield] = useState(100);
+
   return (
     <View style={styles.container}>
       <View style={styles.mapContainer}>
@@ -227,6 +245,18 @@ export default function ArcadeScreen() {
           />
         </View>
       </View>
+
+      {/* Health bar */}
+      <HealthBar currentHealth={playerHealth} maxHealth={playerMaxHealth} />
+
+      {/* Stamina bar */}
+      <StaminaBar currentStamina={playerStamina} maxStamina={playerMaxStamina} />
+
+      {/* Special Attack bar */}
+      <SpecialAttackBar currentSpecial={playerSpecial} maxSpecial={playerMaxSpecial} />
+
+      {/* New Shield bar (positioned below the others in the example) */}
+      <ShieldBar currentShield={currentShield} maxShield={maxShield} />
 
       {/* HEART ICON (1st row, unique speed) */}
       <View style={{ position: 'absolute', top: 0, left: 30 }}>
@@ -253,7 +283,7 @@ export default function ArcadeScreen() {
       </View>
 
       {/* SPECIAL ICON (2nd row, unique speed) */}
-      <View style={{ position: 'absolute', top: 350, left: 200 }}>
+      <View style={{ position: 'absolute', top: 330, left: 200 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={specialFrames[specialFrameIndex]}
@@ -265,7 +295,7 @@ export default function ArcadeScreen() {
       </View>
 
       {/* SHIELD ICON (2nd row, unique speed) */}
-      <View style={{ position: 'absolute', top: 300, left: 200 }}>
+      <View style={{ position: 'absolute', top: 270, left: 200 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={shieldFrames[shieldFrameIndex]}

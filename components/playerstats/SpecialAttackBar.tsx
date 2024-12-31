@@ -12,7 +12,7 @@ const SpecialAttackBar: React.FC<SpecialAttackBarProps> = ({
   maxSpecial,
 }) => {
   const barWidth = 200;
-  const barHeight = 10;
+  const barHeight = 8;
   
   // Calculate how 'full' the special bar is
   const specialRatio = currentSpecial / maxSpecial;
@@ -36,8 +36,8 @@ const SpecialAttackBar: React.FC<SpecialAttackBarProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 60, // Adjust as needed (below HealthBar & StaminaBar)
-    left: 20,
+    top: 350, // Adjust as needed (below HealthBar & StaminaBar)
+    left: 230,
     zIndex: 9999,
   },
   background: {
@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   foreground: {
-    backgroundColor: 'purple', // Bar "filled" color (change to your preference)
+    backgroundColor: 'yellow', // Bar "filled" color (change to your preference)
     position: 'absolute',
   },
 });

@@ -8,7 +8,7 @@ interface HealthBarProps {
 
 const HealthBar: React.FC<HealthBarProps> = ({ currentHealth, maxHealth }) => {
   const barWidth = 200;
-  const barHeight = 10;
+  const barHeight = 16;
 
   const healthRatio = currentHealth / maxHealth;
   const healthWidth = barWidth * Math.max(0, Math.min(healthRatio, 1));
@@ -24,8 +24,8 @@ const HealthBar: React.FC<HealthBarProps> = ({ currentHealth, maxHealth }) => {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 20,
-    left: 20,
+    top: 40,
+    left: 94,
     zIndex: 9999,
   },
   background: {
@@ -33,7 +33,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   foreground: {
-    backgroundColor: 'green',
+    backgroundColor: 'red',
     position: 'absolute',
   },
 });
