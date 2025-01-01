@@ -1,47 +1,51 @@
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 
-interface StaminaBarProps {
-  currentStamina: number;
-  maxStamina: number;
+interface RageMeterBarProps {
+  currentRage: number;
+  maxRage: number;
 }
 
-const StaminaBar: React.FC<StaminaBarProps> = ({ currentStamina, maxStamina }) => {
-  const barWidth = 350;
+const RageMeterBar: React.FC<RageMeterBarProps> = ({ currentRage, maxRage }) => {
+  const barWidth = 200;
   const barHeight = 12;
   const borderRadius = barHeight / 2;
-  const ratio = currentStamina / maxStamina;
-  const clampedRatio = Math.max(0, Math.min(ratio, 1));
-  const staminaWidth = barWidth * clampedRatio;
 
-  const percentageLabel = `${(clampedRatio * 100).toFixed(1)}%`;
+  // Ratio of how full the bar is
+  const ratio = Math.max(0, Math.min(currentRage / maxRage, 1));
+  // The filled region’s width
+  const filledWidth = barWidth * ratio;
+
+  const percentageLabel = `${(ratio * 100).toFixed(1)}% Rage`;
 
   return (
     <View style={[styles.container, { width: barWidth, height: barHeight }]}>
-      {/* Background */}
+      {/* BACKGROUND (rounded left corners) */}
       <View
         style={[
           styles.background,
           {
             width: barWidth,
             height: barHeight,
-            borderRadius,
+            borderTopLeftRadius: borderRadius,
+            borderBottomLeftRadius: borderRadius,
           },
         ]}
       />
-      {/* Filled portion */}
+      {/* FOREGROUND pinned to the right, also rounded on the left side */}
       <View
         style={[
           styles.foreground,
           {
-            width: staminaWidth,
+            width: filledWidth,
             height: barHeight,
-            borderTopRightRadius: borderRadius,
-            borderBottomRightRadius: borderRadius,
+            borderTopLeftRadius: borderRadius,
+            borderBottomLeftRadius: borderRadius,
+            right: 0, // anchor to the right side
           },
         ]}
       />
-      {/* Centered label */}
+      {/* Text label */}
       <View style={styles.textContainer}>
         <Text style={[styles.label, { fontSize: barHeight * 0.75 }]}>
           {percentageLabel}
@@ -51,24 +55,22 @@ const StaminaBar: React.FC<StaminaBarProps> = ({ currentStamina, maxStamina }) =
   );
 };
 
-export default StaminaBar;
+export default RageMeterBar;
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 72,
-    left: 78,
+    top: 358,
+    left: 420,
     zIndex: 9999,
   },
   background: {
-    // 50% translucent gray
-    backgroundColor: 'rgba(136, 136, 136, 0.3)',
+    backgroundColor: 'rgba(136,136,136,0.3)', // gray, translucent
     position: 'absolute',
   },
   foreground: {
-    // 50% translucent blue
-    backgroundColor: 'rgba(0, 0, 255, 0.5)',
     position: 'absolute',
+    backgroundColor: 'rgba(255, 140, 0, 0.5)',
   },
   textContainer: {
     position: 'absolute',

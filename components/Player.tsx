@@ -19,6 +19,8 @@ interface PlayerProps {
   // Optional: to log parent "world coords" in debug
   worldX?: number;
   worldY?: number;
+  // (Optional) pass a callback to tell the parent about the player's bounding box:
+  onUpdateHitbox?: (hitbox: { x: number; y: number; width: number; height: number }) => void;
 }
 
 interface DimensionsChangePayload {
@@ -34,6 +36,7 @@ export default function Player({
   isDashing,
   worldX,
   worldY,
+  onUpdateHitbox,
 }: PlayerProps) {
   // Keep track of device dimension, in case it changes
   const [devWidth, setDevWidth] = useState(Dimensions.get('window').width);
@@ -84,6 +87,16 @@ export default function Player({
   const spriteLeft = devWidth / 2 - SPRITE_SIZE / 2;
   const spriteTop  = devHeight / 2 - SPRITE_SIZE / 2;
 
+  // Notify the parent about our bounding box if desired:
+  useEffect(() => {
+    onUpdateHitbox?.({
+      x: spriteLeft,
+      y: spriteTop,
+      width: SPRITE_SIZE,
+      height: SPRITE_SIZE,
+    });
+  }, [spriteLeft, spriteTop, onUpdateHitbox]);
+
   return (
     <View
       style={[
@@ -91,6 +104,8 @@ export default function Player({
         {
           left: spriteLeft,
           top: spriteTop,
+          width: SPRITE_SIZE,
+          height: SPRITE_SIZE,
         },
       ]}
     >

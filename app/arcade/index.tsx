@@ -10,23 +10,36 @@ import {
   Platform,
 } from 'react-native';
 import Svg, { G, Polygon } from 'react-native-svg';
+
 import Player from '../../components/Player';
+import EnemyDragon from '../../components/EnemyDragon'; // or wherever you put it
 import GameController from '../../components/GameController';
 import Sprite from '@/components/Sprite';
-import spriteSheet from '../../assets/sprites/stat_sprites/stats.png';
+
+// Multiple sprite sheets
+import spriteSheet from '../../assets/sprites/stat_sprites/stats.png';   // For “low” special
+import spriteSheet2 from '../../assets/sprites/stat_sprites/stats2.png';
+import spriteSheet3 from '../../assets/sprites/stat_sprites/stats3.png'; // For charged + super
+
 import { Direction } from '../../constants/types';
 import { HellscapeMap } from '../../assets/maps/HellscapeMap';
 import { movePlayer, Position } from '../../controllers/playerController';
 import TiledMap from '../../components/TiledMap';
 import mapFullImage from '../../assets/maps/map_full.png';
+
+// Bars/components
 import ShieldBar from '@/components/playerstats/ShieldBar';
 import StaminaBar from '@/components/playerstats/StaminaBar';
 import HealthBar from '@/components/playerstats/HealthBar';
 import SpecialAttackBar from '@/components/playerstats/SpecialAttackBar';
+import RageMeterBar from '@/components/playerstats/RageMeterBar';
+import TimerBar from '@/components/playerstats/TimerBar';
+import BossHealthBar from '@/components/enemystats/BossHealthBar';
+import PlayerProjectile from '@/components/attacks/PlayerProjectile';
+import EnemyProjectile from '@/components/attacks/EnemyProjectile';
 
 const initialWidth = Dimensions.get('window').width;
 const initialHeight = Dimensions.get('window').height;
-//console.log(`[ArcadeScreen] initial device width=${initialWidth}, height=${initialHeight}`);
 
 interface DimensionsChangePayload {
   window: ScaledSize;
@@ -37,22 +50,20 @@ const MOVE_SPEED = 20;
 const TILE_SIZE = 32;
 
 export default function ArcadeScreen() {
-  // Track actual device width/height state
+  // Track device dims
   const [deviceWidth, setDeviceWidth] = useState(initialWidth);
   const [deviceHeight, setDeviceHeight] = useState(initialHeight);
 
   useEffect(() => {
     const handleDimChange = ({ window, screen }: DimensionsChangePayload) => {
-      // ...
+      setDeviceWidth(window.width);
+      setDeviceHeight(window.height);
     };
     const subscription = Dimensions.addEventListener('change', handleDimChange);
     return () => subscription.remove();
   }, []);
 
-  // We use deviceWidth/deviceHeight instead of static SCREEN_WIDTH/SCREEN_HEIGHT
-  //console.log(`[ArcadeScreen] current deviceWidth=${deviceWidth}, deviceHeight=${deviceHeight}`);
-
-  // Calculate total map size in “world coordinates.”
+  // Map size
   const mapWidthPx = HellscapeMap.width * TILE_SIZE;
   const mapHeightPx = HellscapeMap.height * TILE_SIZE;
 
@@ -62,20 +73,20 @@ export default function ArcadeScreen() {
     y: mapHeightPx / 2,
   });
 
-  // Player state
+  // Player direction & movement
   const [direction, setDirection] = useState<Direction>('down');
   const [isMoving, setIsMoving] = useState(false);
 
   // Pause
   const [isPaused, setIsPaused] = useState(false);
 
-  // Joystick-based movement
+  // Joystick
   const [joystickDirection, setJoystickDirection] = useState({ dx: 0, dy: 0 });
 
   // requestAnimationFrame
   const frameRequestRef = useRef<number | null>(null);
 
-  // Extract collision polygons
+  // Collision polygons
   const [barriers] = useState(() => {
     const polygons: { x: number; y: number }[][] = [];
     for (const layer of HellscapeMap.layers) {
@@ -98,6 +109,7 @@ export default function ArcadeScreen() {
     return polygons;
   });
 
+  // Movement
   const handleMove = (dx: number, dy: number, newDirection: Direction) => {
     if (dx === 0 && dy === 0) {
       setIsMoving(false);
@@ -105,7 +117,6 @@ export default function ArcadeScreen() {
       setIsMoving(true);
       setDirection(newDirection);
 
-      // Single immediate step
       setPlayerWorldPos((prevPos) => {
         const stepX = prevPos.x + dx * MOVE_SPEED;
         const stepY = prevPos.y + dy * MOVE_SPEED;
@@ -123,26 +134,16 @@ export default function ArcadeScreen() {
     setJoystickDirection({ dx, dy });
   };
 
-  const handleShoot = (dx: number, dy: number) => {
-    if (dx === 0 && dy === 0) return;
-    console.log(`Shooting dx=${dx}, dy=${dy}`);
-  };
-
   // Animate loop
   const animate = () => {
     const { dx, dy } = joystickDirection;
     if (dx !== 0 || dy !== 0) {
-      const length = Math.sqrt(dx*dx + dy*dy);
+      const length = Math.sqrt(dx * dx + dy * dy);
       if (length > 0.001) {
-        const ndx = (dx/length)*MOVE_SPEED;
-        const ndy = (dy/length)*MOVE_SPEED;
-        setPlayerWorldPos((prevPos) => 
-          movePlayer(
-            { x: prevPos.x + ndx, y: prevPos.y + ndy },
-            ndx,
-            ndy,
-            barriers
-          )
+        const ndx = (dx / length) * MOVE_SPEED;
+        const ndy = (dy / length) * MOVE_SPEED;
+        setPlayerWorldPos((prevPos) =>
+          movePlayer({ x: prevPos.x + ndx, y: prevPos.y + ndy }, ndx, ndy, barriers)
         );
       }
     }
@@ -156,85 +157,228 @@ export default function ArcadeScreen() {
     };
   }, [joystickDirection, barriers]);
 
-  // Instead of static SCREEN_WIDTH, use deviceWidth
-  const offsetX = deviceWidth/2 - playerWorldPos.x;
-  const offsetY = deviceHeight/2 - playerWorldPos.y;
+  // Camera offset
+  const offsetX = deviceWidth / 2 - playerWorldPos.x;
+  const offsetY = deviceHeight / 2 - playerWorldPos.y;
 
+  // This callback can be used if you want the enemy’s bounding box for collision
+  // This callback can be used for collision or debugging
+  const handleDragonHitboxUpdate = (box: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => {
+    console.log('Dragon bounding box is', box);
+  };
+
+  // ------------------ FRAME ARRAYS ------------------
+  // For normal, charged, super-charged special
+  const specialLowFrames = [32, 64, 96, 128, 160];  // row=96 in stats.png
+  const specialMedFrames = [32, 64, 96, 128, 160];  // row=0 in stats3
+  const specialHighFrames = [32, 64, 96, 128, 160]; // row=48 in stats3
+
+  // We’ll define other frames too
   const heartFrames = [32, 64, 96, 128, 160, 192, 160, 128, 96, 64];
-  const specialFrames = [32, 64, 96, 128, 160];
   const staminaFrames = [32, 64, 96, 128, 160, 128, 96, 64];
-  const shieldFrames = [0, 32, 64, 96, 128, 160, 192, 192, 160, 128, 96, 64, 32, 0]
-  
-  // Row offsets in sprite sheet (for each icon):
-  const HEART_Y = 0;     // 1st row
-  const SPECIAL_Y = 96;  // 2nd row
-  const STAMINA_Y = 144; // 4th row
-  const SHIELD_Y =  192; // 5th row
+  const shieldFrames = [0, 32, 64, 96, 128, 160, 192, 192, 160, 128, 96, 64, 32, 0];
 
-  // ------------------------------------------
-  // 1) Heart has its own frame index + speed
-  // ------------------------------------------
+  // Timer (from sheet2, partial example)
+  const timerMovingFrames = [0, 32, 64, 96, 128, 160];
+  const timerResetFrames = [0, 32, 64, 96, 128, 160, 192];
+  const combinedTimerFrames = [
+    ...timerMovingFrames.map(x => ({ x, y: 48 })),
+    ...timerResetFrames.map(x => ({ x, y: 96 })),
+  ];
+
+  const rageMeterFrames = [0, 32, 64, 96, 128];
+  const bossFrames = [0, 32, 64, 96, 128, 160, 192, 192, 160, 128, 96, 64, 32, 0];
+
+  // Row offsets
+  const HEART_Y = 0;     
+  const SPECIAL_LOW_Y = 96;    // row=96 in sheet.png
+  const SPECIAL_MED_Y = 0;     // row=0 in sheet3
+  const SPECIAL_HIGH_Y = 48;   // row=48 in sheet3
+
+  const STAMINA_Y = 144;
+  const SHIELD_Y = 192;
+  const RAGE_Y = 0;   // in sheet2
+  const BOSS_Y = 144; // in sheet2
+
+  // Suppose you want the dragon to be at (400, 500) in map/world space
+  const DRAGON_X = 400;
+  const DRAGON_Y = 500;
+
+  // --------------- HEART ANIMATION ---------------
   const [heartFrameIndex, setHeartFrameIndex] = useState(0);
-
   useEffect(() => {
-    const heartInterval = setInterval(() => {
-      setHeartFrameIndex((prev) => (prev + 1) % heartFrames.length);
-    }, 150); // Heart: animate every 150ms
-    return () => clearInterval(heartInterval);
+    const intId = setInterval(() => {
+      setHeartFrameIndex(prev => (prev + 1) % heartFrames.length);
+    }, 150);
+    return () => clearInterval(intId);
   }, []);
 
-  // ------------------------------------------
-  // 2) Stamina has its own frame index + speed
-  // ------------------------------------------
+  // --------------- STAMINA ANIMATION ---------------
   const [staminaFrameIndex, setStaminaFrameIndex] = useState(0);
-
   useEffect(() => {
-    const staminaInterval = setInterval(() => {
-      setStaminaFrameIndex((prev) => (prev + 1) % staminaFrames.length);
-    }, 70); // Stamina: animate every 70ms
-    return () => clearInterval(staminaInterval);
+    const intId = setInterval(() => {
+      setStaminaFrameIndex(prev => (prev + 1) % staminaFrames.length);
+    }, 70);
+    return () => clearInterval(intId);
   }, []);
 
-  // ------------------------------------------
-  // 3) Special has its own frame index + speed
-  // ------------------------------------------
+  // --------------- SHIELD ANIMATION ---------------
+  const [shieldFrameIndex, setShieldFrameIndex] = useState(0);
+  useEffect(() => {
+    const intId = setInterval(() => {
+      setShieldFrameIndex(prev => (prev + 1) % shieldFrames.length);
+    }, 100);
+    return () => clearInterval(intId);
+  }, []);
+
+  // --------------- TIMER ANIMATION ---------------
+  const [timerFrameIndex, setTimerFrameIndex] = useState(0);
+  useEffect(() => {
+    const intId = setInterval(() => {
+      setTimerFrameIndex(prev => (prev + 1) % combinedTimerFrames.length);
+    }, 150);
+    return () => clearInterval(intId);
+  }, []);
+  const currentTimerFrame = combinedTimerFrames[timerFrameIndex];
+
+  // --------------- RAGE ANIMATION ---------------
+  const [rageMeterFrameIndex, setRageMeterFrameIndex] = useState(0);
+  useEffect(() => {
+    const intId = setInterval(() => {
+      setRageMeterFrameIndex(prev => (prev + 1) % rageMeterFrames.length);
+    }, 35);
+    return () => clearInterval(intId);
+  }, []);
+
+  // --------------- BOSS ANIMATION ---------------
+  const [bossFrameIndex, setBossFrameIndex] = useState(0);
+  useEffect(() => {
+    const intId = setInterval(() => {
+      setBossFrameIndex(prev => (prev + 1) % bossFrames.length);
+    }, 35);
+    return () => clearInterval(intId);
+  }, []);
+
+  // --------------- SPECIAL ATTACK ANIMATION ---------------
+  // We allow up to 200% (2.0 ratio)
+  const [playerSpecial, setPlayerSpecial] = useState(150);
+  const [playerMaxSpecial, setPlayerMaxSpecial] = useState(100);
+
+  // We'll manage a single "specialFrameIndex"
   const [specialFrameIndex, setSpecialFrameIndex] = useState(0);
 
   useEffect(() => {
-    const specialInterval = setInterval(() => {
-      setSpecialFrameIndex((prev) => (prev + 1) % specialFrames.length);
-    }, 70); // Special: animate every 70ms
-    return () => clearInterval(specialInterval);
-  }, []);  
+    // Clear any prior interval
+    let intId: NodeJS.Timeout | null = null;
 
-  // ------------------------------------------
-  // 4) Shield has its own frame index + speed
-  // ------------------------------------------
-  const [shieldFrameIndex, setShieldFrameIndex] = useState(0);
+    const ratio = playerSpecial / playerMaxSpecial; // up to 2.0
+    if (ratio > 0) {
+      // If we want to animate special whenever ratio>0 (or maybe only above 0.0),
+      // we start an interval that increments specialFrameIndex every 70ms.
+      intId = setInterval(() => {
+        setSpecialFrameIndex(prev => prev + 1);
+      }, 70);
+    } else {
+      // If ratio==0, we might reset specialFrameIndex=0 (optional).
+      setSpecialFrameIndex(0);
+    }
 
-  useEffect(() => {
-    const shieldInterval = setInterval(() => {
-      setShieldFrameIndex((prev) => (prev + 1) % shieldFrames.length);
-    }, 100); // Special: animate every 300ms
-    return () => clearInterval(shieldInterval);
-  }, []);  
+    return () => {
+      if (intId) clearInterval(intId);
+    };
+  }, [playerSpecial, playerMaxSpecial]);
 
-  // ----- DEFINE THE MISSING STATS HERE! -----
-  const [playerHealth, setPlayerHealth] = useState(80);
+  function renderSpecialSprite() {
+    // Decide which "loop" to use based on ratio
+    const ratio = playerSpecial / playerMaxSpecial; // 0..2
+    let frames: number[];
+    let sheet: any;
+    let rowY: number;
+
+    if (ratio < 1.0) {
+      // Below 100% => "Low" special
+      frames = specialLowFrames;
+      sheet = spriteSheet;   // first sprite sheet
+      rowY = SPECIAL_LOW_Y;  // row=96
+    } else if (ratio < 1.5) {
+      // 100%..149% => "Charged" special
+      frames = specialMedFrames;
+      sheet = spriteSheet3;  // third sprite sheet
+      rowY = SPECIAL_MED_Y;  // row=0
+    } else {
+      // ratio >= 1.5 => "Super" special
+      frames = specialHighFrames;
+      sheet = spriteSheet3;
+      rowY = SPECIAL_HIGH_Y; // row=48
+    }
+
+    // specialFrameIndex can be any integer, so we mod it by frames.length
+    const index = specialFrameIndex % frames.length;
+    const xPos = frames[index];
+
+    return (
+      <Sprite
+        spriteSheet={sheet}
+        x={xPos}
+        y={rowY}
+        width={32}
+        height={48}
+        scale={1}
+      />
+    );
+  }
+
+  // ----- Other Stats/Bars -----
+  const [playerHealth, setPlayerHealth] = useState(100);
   const [playerMaxHealth, setPlayerMaxHealth] = useState(100);
 
-  const [playerStamina, setPlayerStamina] = useState(50);
+  const [playerStamina, setPlayerStamina] = useState(100);
   const [playerMaxStamina, setPlayerMaxStamina] = useState(100);
 
-  const [playerSpecial, setPlayerSpecial] = useState(25);
-  const [playerMaxSpecial, setPlayerMaxSpecial] = useState(100);
-
-  // Shield bar example
   const [currentShield, setCurrentShield] = useState(30);
   const [maxShield, setMaxShield] = useState(100);
 
+  const [currentRage, setCurrentRage] = useState(50);
+  const [maxRage, setMaxRage] = useState(100);
+
+  const [currentTime, setCurrentTime] = useState(10);
+  const [maxTime, setMaxTime] = useState(30);
+
+  const [currentBossHP, setCurrentBossHP] = useState(7000);
+  const [maxBossHP, setMaxBossHP] = useState(10000);
+
+  // Projectiles
+  const [playerProjectiles, setPlayerProjectiles] = useState<
+    { id: number; x: number; y: number; vx: number; vy: number }[]
+  >([]);
+  const nextProjectileId = useRef(1);
+
+  const handleShoot = (dx: number, dy: number) => {
+    if (dx === 0 && dy === 0) return;
+    const length = Math.sqrt(dx*dx + dy*dy);
+    if (length < 0.001) return;
+    const speed = 10;
+    const vx = dx / length;
+    const vy = dy / length;
+    const newId = nextProjectileId.current++;
+    setPlayerProjectiles(prev => [
+      ...prev,
+      { id: newId, x: playerWorldPos.x, y: playerWorldPos.y, vx, vy },
+    ]);
+  };
+
+  const removePlayerProjectile = (projId: number) => {
+    setPlayerProjectiles(prev => prev.filter((p) => p.id !== projId));
+  };
+
   return (
     <View style={styles.container}>
+      {/* MAP */}
       <View style={styles.mapContainer}>
         <View style={{ transform: [{ translateX: offsetX }, { translateY: offsetY }] }}>
           <TiledMap
@@ -246,31 +390,28 @@ export default function ArcadeScreen() {
         </View>
       </View>
 
-      {/* Health bar */}
+      {/* Bars */}
       <HealthBar currentHealth={playerHealth} maxHealth={playerMaxHealth} />
-
-      {/* Stamina bar */}
       <StaminaBar currentStamina={playerStamina} maxStamina={playerMaxStamina} />
-
-      {/* Special Attack bar */}
       <SpecialAttackBar currentSpecial={playerSpecial} maxSpecial={playerMaxSpecial} />
-
-      {/* New Shield bar (positioned below the others in the example) */}
       <ShieldBar currentShield={currentShield} maxShield={maxShield} />
+      <RageMeterBar currentRage={currentRage} maxRage={maxRage} />
+      <TimerBar currentTime={currentTime} maxTime={maxTime} />
+      <BossHealthBar currentBossHealth={currentBossHP} maxBossHealth={maxBossHP} />
 
-      {/* HEART ICON (1st row, unique speed) */}
+      {/* HEART ICON */}
       <View style={{ position: 'absolute', top: 0, left: 30 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={heartFrames[heartFrameIndex]}
           y={HEART_Y}
-          width={48}  // double 32
-          height={72} // double 48
-          scale={1.5}   // upscales the sheet
+          width={48}
+          height={72}
+          scale={1.5}
         />
       </View>
 
-      {/* STAMINA ICON (4th row, unique speed) */}
+      {/* STAMINA ICON */}
       <View style={{ position: 'absolute', top: 42, left: 30 }}>
         <Sprite
           spriteSheet={spriteSheet}
@@ -282,8 +423,8 @@ export default function ArcadeScreen() {
         />
       </View>
 
-      {/* SHIELD ICON (2nd row, unique speed) */}
-      <View style={{ position: 'absolute', top: 288, left: 200 }}>
+      {/* SHIELD ICON */}
+      <View style={{ position: 'absolute', top: 294, left: 180 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={shieldFrames[shieldFrameIndex]}
@@ -294,18 +435,63 @@ export default function ArcadeScreen() {
         />
       </View>
 
-      {/* SPECIAL ICON (2nd row, unique speed) */}
-      <View style={{ position: 'absolute', top: 330, left: 200 }}>
+      {/* TIMER ICON */}
+      <View style={{ position: 'absolute', top: 282, left: 620 }}>
         <Sprite
-          spriteSheet={spriteSheet}
-          x={specialFrames[specialFrameIndex]}
-          y={SPECIAL_Y}
-          width={32}
-          height={48}
-          scale={1}
+          spriteSheet={spriteSheet2}
+          x={currentTimerFrame.x}
+          y={currentTimerFrame.y}
+          width={48}
+          height={72}
+          scale={1.5}
         />
       </View>
 
+      {/* RAGE ICON */}
+      <View style={{ position: 'absolute', top: 328, left: 620 }}>
+        <Sprite
+          spriteSheet={spriteSheet2}
+          x={rageMeterFrames[rageMeterFrameIndex]}
+          y={RAGE_Y}
+          width={48}
+          height={72}
+          scale={1.5}
+        />
+      </View>
+
+      {/* BOSS ICON */}
+      <View style={{ position: 'absolute', top: 4, left: 744 }}>
+        <Sprite
+          spriteSheet={spriteSheet2}
+          x={bossFrames[bossFrameIndex]}
+          y={BOSS_Y}
+          width={48}
+          height={72}
+          scale={1.5}
+        />
+      </View>
+
+      {/* SPECIAL ICON: 3 dynamic loops */}
+      <View style={{ position: 'absolute', top: 340, left: 180 }}>
+        {renderSpecialSprite()}
+      </View>
+
+      {/* Player projectiles */}
+      {playerProjectiles.map((proj) => (
+        <PlayerProjectile
+          key={proj.id}
+          startX={proj.x}
+          startY={proj.y}
+          velocityX={proj.vx}
+          velocityY={proj.vy}
+          speed={10}
+          onRemove={() => removePlayerProjectile(proj.id)}
+          offsetX={offsetX}
+          offsetY={offsetY}
+        />
+      ))}
+
+      {/* Collision debug, enemy projectiles, etc. */}
       <Svg style={StyleSheet.absoluteFill}>
         <G transform={`translate(${offsetX}, ${offsetY})`}>
           {barriers.map((poly, idx) => {
@@ -323,6 +509,7 @@ export default function ArcadeScreen() {
         </G>
       </Svg>
 
+      {/* PLAYER */}
       <Player
         x={0}
         y={0}
@@ -333,6 +520,17 @@ export default function ArcadeScreen() {
         worldY={playerWorldPos.y}
       />
 
+      {/* Enemy Dragon in the center */}
+      <EnemyDragon
+        worldX={DRAGON_X}
+        worldY={DRAGON_Y}
+        offsetX={offsetX}
+        offsetY={offsetY}
+        onUpdateHitbox={handleDragonHitboxUpdate}
+        currentBossHealth={currentBossHP}
+      />
+
+      {/* GAME CONTROLLER */}
       <GameController
         onMove={(dx, dy, dir) => handleMove(dx, dy, dir)}
         onShoot={handleShoot}
@@ -341,6 +539,7 @@ export default function ArcadeScreen() {
         onUseItem={() => console.log('Use item!')}
       />
 
+      {/* PAUSE BUTTON */}
       <TouchableOpacity
         style={styles.pauseButton}
         onPress={() => setIsPaused(true)}
@@ -348,6 +547,7 @@ export default function ArcadeScreen() {
         <Text style={styles.pauseText}>Pause</Text>
       </TouchableOpacity>
 
+      {/* PAUSE MENU */}
       <Modal visible={isPaused} transparent animationType="fade">
         <View style={styles.pauseMenu}>
           <Text style={styles.pauseText}>Game Paused</Text>
@@ -363,7 +563,7 @@ export default function ArcadeScreen() {
   );
 }
 
-/* ---------------------------------------------------------- */
+/* ------------------------------------- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,

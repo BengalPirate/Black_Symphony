@@ -1,74 +1,76 @@
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 
-interface StaminaBarProps {
-  currentStamina: number;
-  maxStamina: number;
+interface TimerBarProps {
+  currentTime: number;
+  maxTime: number;
 }
 
-const StaminaBar: React.FC<StaminaBarProps> = ({ currentStamina, maxStamina }) => {
-  const barWidth = 350;
+const TimerBar: React.FC<TimerBarProps> = ({ currentTime, maxTime }) => {
+  const barWidth = 200;
   const barHeight = 12;
   const borderRadius = barHeight / 2;
-  const ratio = currentStamina / maxStamina;
-  const clampedRatio = Math.max(0, Math.min(ratio, 1));
-  const staminaWidth = barWidth * clampedRatio;
 
-  const percentageLabel = `${(clampedRatio * 100).toFixed(1)}%`;
+  // 0..1 ratio
+  const ratio = Math.max(0, Math.min(currentTime / maxTime, 1));
+  const filledWidth = barWidth * ratio;
+
+  // Example label: seconds left
+  const secondsLeft = Math.max(0, maxTime - currentTime);
+  const labelStr = `${secondsLeft.toFixed(1)}s`;
 
   return (
     <View style={[styles.container, { width: barWidth, height: barHeight }]}>
-      {/* Background */}
+      {/* BACKGROUND (round left) */}
       <View
         style={[
           styles.background,
           {
             width: barWidth,
             height: barHeight,
-            borderRadius,
+            borderTopLeftRadius: borderRadius,
+            borderBottomLeftRadius: borderRadius,
           },
         ]}
       />
-      {/* Filled portion */}
+      {/* FOREGROUND pinned to right, round left */}
       <View
         style={[
           styles.foreground,
           {
-            width: staminaWidth,
+            width: filledWidth,
             height: barHeight,
-            borderTopRightRadius: borderRadius,
-            borderBottomRightRadius: borderRadius,
+            borderTopLeftRadius: borderRadius,
+            borderBottomLeftRadius: borderRadius,
+            right: 0,
           },
         ]}
       />
-      {/* Centered label */}
       <View style={styles.textContainer}>
         <Text style={[styles.label, { fontSize: barHeight * 0.75 }]}>
-          {percentageLabel}
+          {labelStr}
         </Text>
       </View>
     </View>
   );
 };
 
-export default StaminaBar;
+export default TimerBar;
 
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 72,
-    left: 78,
+    top: 312,
+    left: 420,
     zIndex: 9999,
   },
   background: {
-    // 50% translucent gray
-    backgroundColor: 'rgba(136, 136, 136, 0.3)',
     position: 'absolute',
+    backgroundColor: 'rgba(136,136,136,0.3)',
   },
   foreground: {
-    // 50% translucent blue
-    backgroundColor: 'rgba(0, 0, 255, 0.5)',
     position: 'absolute',
+    backgroundColor: 'rgba(255, 0, 255, 0.5)', 
   },
   textContainer: {
     position: 'absolute',
