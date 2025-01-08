@@ -10,6 +10,7 @@ interface SpriteProps {
   sheetWidth?: number;   // The total width of your sprite sheet (defaults to 256)
   sheetHeight?: number;  // The total height of your sprite sheet (defaults to 256)
   scale?: number;     // How much to scale the entire sheet for pixel-art upscaling (defaults to 1)
+  yOffset?: number;     // optional extra offset
 }
 
 /**
@@ -30,14 +31,17 @@ const Sprite = ({
   sheetWidth = 256,
   sheetHeight = 256,
   scale = 2,
+  yOffset = 0,
 }: SpriteProps) => {
+  // The actual top coordinate we want to sample from
+  const finalY = y + yOffset;
   // Scale the entire sheet
   const scaledSheetWidth = sheetWidth * scale;
   const scaledSheetHeight = sheetHeight * scale;
 
   // Multiply the offsets by `scale` as well, so we only see the intended sub-rectangle
   const offsetLeft = -x * scale;
-  const offsetTop = -y * scale;
+  const offsetTop  = -finalY * scale;
 
   return (
     <View style={[styles.spriteContainer, { width, height }]}>

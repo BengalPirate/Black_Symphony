@@ -38,6 +38,21 @@ import BossHealthBar from '@/components/enemystats/BossHealthBar';
 import PlayerProjectile from '@/components/attacks/PlayerProjectile';
 import EnemyProjectile from '@/components/attacks/EnemyProjectile';
 
+// Redux
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store'; // your store
+
+// All mage frames
+import { fireMageFrames } from '@/assets/sprites/player_sprites/fire_mage/fireMageFrames';
+import { earthMageFrames } from '@/assets/sprites/player_sprites/earth_mage/earthMageFrames';
+import { iceMageFrames } from '@/assets/sprites/player_sprites/ice_mage/iceMageFrames';
+import { lightMageFrames } from '@/assets/sprites/player_sprites/light_mage/lightMageFrames';
+import { windMageFrames } from '@/assets/sprites/player_sprites/wind_mage/windMageFrames';
+import { timeMageFrames } from '@/assets/sprites/player_sprites/time_mage/timeMageFrames';
+import { lightiningMageFrames } from '@/assets/sprites/player_sprites/lightning_mage/lightningMageFrames'; // fix spelling if needed
+import { darkMageFrames } from '@/assets/sprites/player_sprites/dark_mage/darkMageFrames';
+
+
 const initialWidth = Dimensions.get('window').width;
 const initialHeight = Dimensions.get('window').height;
 
@@ -50,6 +65,37 @@ const MOVE_SPEED = 20;
 const TILE_SIZE = 32;
 
 export default function ArcadeScreen() {
+  // 1) Read selected mage from Redux
+  const selectedMage = useSelector((state: RootState) => state.mage.selectedMage);
+
+  // 2) Decide which frames object to use
+  let frames;
+  switch (selectedMage) {
+    case 'earth':
+      frames = earthMageFrames;
+      break;
+    case 'ice':
+      frames = iceMageFrames;
+      break;
+    case 'light':
+      frames = lightMageFrames;
+      break;
+    case 'wind':
+      frames = windMageFrames;
+      break;
+    case 'time':
+      frames = timeMageFrames;
+      break;
+    case 'lightning':
+      frames = lightiningMageFrames;
+      break;
+    case 'dark':
+      frames = darkMageFrames;
+      break;
+    default:
+      frames = fireMageFrames;
+      break;
+  }
   // Track device dims
   const [deviceWidth, setDeviceWidth] = useState(initialWidth);
   const [deviceHeight, setDeviceHeight] = useState(initialHeight);
@@ -507,10 +553,11 @@ export default function ArcadeScreen() {
             );
           })}
         </G>
-      </Svg>
+      </Svg> 
 
-      {/* PLAYER */}
-      <Player
+       {/* PLAYER */}
+       <Player
+        frames={frames}          // <--- Pass the chosen frames object here!
         x={0}
         y={0}
         direction={direction}

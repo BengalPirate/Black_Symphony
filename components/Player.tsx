@@ -1,25 +1,34 @@
+// Player.tsx
 import React, { useEffect, useState } from 'react';
-import {
-  View,
-  Dimensions,
-  StyleSheet,
-  ScaledSize,
-  Platform,
-  Image,
-} from 'react-native';
+import { View, Dimensions, StyleSheet, ScaledSize } from 'react-native';
 import { Direction } from '../constants/types';
-import { spriteFrames } from '../assets/sprites/spriteFrames'; // or wherever your frames live
+import Sprite from '@/components/Sprite';
+
+// Here’s the type for each direction’s info
+interface Frame {
+  x: number;
+  y: number;
+  yOffset?: number;
+}
+interface DirectionInfo {
+  sheet: any;              // e.g. require('mage1.png')
+  frames: Frame[];         // run frames
+  idle?: Frame;            // optional idle frame
+  sheetWidth: number;
+  sheetHeight: number;
+}
+// So frames is a dictionary: { 'down': DirectionInfo, 'up': DirectionInfo, ... }
+type FramesDictionary = Record<string, DirectionInfo>;
 
 interface PlayerProps {
+  frames: FramesDictionary;  // <--- We now accept the full frames object
   x: number;
   y: number;
   direction: Direction;
   isMoving: boolean;
   isDashing: boolean;
-  // Optional: to log parent "world coords" in debug
   worldX?: number;
   worldY?: number;
-  // (Optional) pass a callback to tell the parent about the player's bounding box:
   onUpdateHitbox?: (hitbox: { x: number; y: number; width: number; height: number }) => void;
 }
 
@@ -29,6 +38,7 @@ interface DimensionsChangePayload {
 }
 
 export default function Player({
+  frames,
   x,
   y,
   direction,
@@ -42,18 +52,11 @@ export default function Player({
   const [devWidth, setDevWidth] = useState(Dimensions.get('window').width);
   const [devHeight, setDevHeight] = useState(Dimensions.get('window').height);
 
-  // We store the current frames for the direction
-  const frames = spriteFrames[direction] || spriteFrames.down;
+  // Keep track of last direction so we can idle in that direction
+  const [lastDirection, setLastDirection] = useState<Direction>('down');
 
-  // Simple animation index
-  const [frameIndex, setFrameIndex] = useState(0);
-
-  // Listen for dimension changes (modern approach)
   useEffect(() => {
     const onChange = ({ window, screen }: DimensionsChangePayload) => {
-      console.log(
-        `[Player] Dimensions changed => window=${window.width}x${window.height}, screen=${screen.width}x${screen.height}, platform=${Platform.OS}`
-      );
       setDevWidth(window.width);
       setDevHeight(window.height);
     };
@@ -61,41 +64,62 @@ export default function Player({
     return () => subscription.remove();
   }, []);
 
-  // Log props each time something changes
-  useEffect(() => {
-    console.log(
-      `[Player Debug] props=(x=${x}, y=${y}), dir=${direction}, isMoving=${isMoving}, isDashing=${isDashing}, world=(${worldX},${worldY}), deviceW=${devWidth}, deviceH=${devHeight}`
-    );
-  }, [x, y, direction, isMoving, isDashing, worldX, worldY, devWidth, devHeight]);
-
-  // If isMoving, cycle frames every 150 ms; else revert to frame 0
+  // If moving, update last direction
   useEffect(() => {
     if (isMoving) {
-      const interval = setInterval(() => {
-        setFrameIndex((prev) => (prev + 1) % frames.length);
-      }, 150);
-      return () => clearInterval(interval);
+      setLastDirection(direction);
+    }
+  }, [direction, isMoving]);
+
+  // Actual direction is lastDirection if not moving
+  const actualDirection = isMoving ? direction : lastDirection;
+
+  // Lookup frames for that direction
+  const def = frames[actualDirection] || frames['down'];
+  const runFrames = def.frames;
+  const idleFrame = def.idle;
+
+  // Simple animation index
+  const [frameIndex, setFrameIndex] = useState(0);
+
+  useEffect(() => {
+    if (isMoving && runFrames.length > 1) {
+      const intId = setInterval(() => {
+        setFrameIndex((prev) => (prev + 1) % runFrames.length);
+      }, 120);
+      return () => clearInterval(intId);
     } else {
       setFrameIndex(0);
     }
-  }, [isMoving, frames]);
+  }, [isMoving, runFrames]);
 
-  // Decide how big the sprite is
-  const SPRITE_SIZE = 50;
+  // Decide how big the sprite is on-screen
+  const SPRITE_DISPLAY_WIDTH = 64;
+  const SPRITE_DISPLAY_HEIGHT = 80;
 
-  // Place sprite at device center
-  const spriteLeft = devWidth / 2 - SPRITE_SIZE / 2;
-  const spriteTop  = devHeight / 2 - SPRITE_SIZE / 2;
+  // Position the sprite at device center
+  const spriteLeft = devWidth / 2 - SPRITE_DISPLAY_WIDTH / 2;
+  const spriteTop  = devHeight / 2 - SPRITE_DISPLAY_HEIGHT / 2;
 
-  // Notify the parent about our bounding box if desired:
+  // Provide bounding box if needed
   useEffect(() => {
     onUpdateHitbox?.({
       x: spriteLeft,
       y: spriteTop,
-      width: SPRITE_SIZE,
-      height: SPRITE_SIZE,
+      width: SPRITE_DISPLAY_WIDTH,
+      height: SPRITE_DISPLAY_HEIGHT,
     });
   }, [spriteLeft, spriteTop, onUpdateHitbox]);
+
+  // If idle, show idleFrame; otherwise pick runFrames[frameIndex]
+  let frameToShow: Frame;
+  if (!isMoving && idleFrame) {
+    frameToShow = idleFrame;
+  } else if (!isMoving) {
+    frameToShow = runFrames[0];
+  } else {
+    frameToShow = runFrames[frameIndex];
+  }
 
   return (
     <View
@@ -104,15 +128,21 @@ export default function Player({
         {
           left: spriteLeft,
           top: spriteTop,
-          width: SPRITE_SIZE,
-          height: SPRITE_SIZE,
+          width: SPRITE_DISPLAY_WIDTH,
+          height: SPRITE_DISPLAY_HEIGHT,
         },
       ]}
     >
-      <Image
-        source={frames[frameIndex]}
-        style={styles.spriteImage}
-        resizeMode="contain"
+      <Sprite
+        spriteSheet={def.sheet}
+        x={frameToShow.x}
+        y={frameToShow.y + (frameToShow.yOffset || 0)}
+        width={SPRITE_DISPLAY_WIDTH}
+        height={SPRITE_DISPLAY_HEIGHT}
+        sheetWidth={def.sheetWidth}
+        sheetHeight={def.sheetHeight}
+        // scale=2 => each 32×40 tile becomes 64×80
+        scale={2}
       />
     </View>
   );
@@ -121,10 +151,6 @@ export default function Player({
 const styles = StyleSheet.create({
   playerContainer: {
     position: 'absolute',
-    zIndex: 9999, // ensure on top of map/polygons
-  },
-  spriteImage: {
-    width: 50,
-    height: 50,
+    zIndex: 9999, // on top
   },
 });

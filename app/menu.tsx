@@ -25,7 +25,7 @@ export default function MenuScreen() {
           <Text style={styles.menuText}>Story Mode</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => handleMenuPress('/arcade')} style={styles.menuItem}>
+        <TouchableOpacity onPress={() => handleMenuPress('/arcade/select')} style={styles.menuItem}>
           <Text style={styles.menuText}>Arcade Mode</Text>
         </TouchableOpacity>
 
