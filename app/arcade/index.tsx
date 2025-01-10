@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import PlayerSwordSlash from '@/components/PlayerSwordSlash';
+
 import {
   View,
   Modal,
@@ -61,7 +63,7 @@ interface DimensionsChangePayload {
   screen: ScaledSize;
 }
 
-const MOVE_SPEED = 20;
+const MOVE_SPEED = 3;
 const TILE_SIZE = 32;
 
 export default function ArcadeScreen() {
@@ -157,20 +159,25 @@ export default function ArcadeScreen() {
 
   // Movement
   const handleMove = (dx: number, dy: number, newDirection: Direction) => {
+    // If joystick is at (0,0), not moving
     if (dx === 0 && dy === 0) {
       setIsMoving(false);
     } else {
       setIsMoving(true);
       setDirection(newDirection);
 
+      // --- Normalize here ---
+      const length = Math.sqrt(dx * dx + dy * dy);
+      if (length > 0.0001) {
+        dx = dx / length; 
+        dy = dy / length;
+      }
+
       setPlayerWorldPos((prevPos) => {
         const stepX = prevPos.x + dx * MOVE_SPEED;
         const stepY = prevPos.y + dy * MOVE_SPEED;
         return movePlayer(
-          {
-            x: Math.max(0, Math.min(mapWidthPx, stepX)),
-            y: Math.max(0, Math.min(mapHeightPx, stepY)),
-          },
+          { x: stepX, y: stepY },
           dx * MOVE_SPEED,
           dy * MOVE_SPEED,
           barriers
@@ -398,6 +405,9 @@ export default function ArcadeScreen() {
   const [currentBossHP, setCurrentBossHP] = useState(7000);
   const [maxBossHP, setMaxBossHP] = useState(10000);
 
+  // We track if we’re slashing:
+  const [isSlashing, setIsSlashing] = useState(false);
+
   // Projectiles
   const [playerProjectiles, setPlayerProjectiles] = useState<
     { id: number; x: number; y: number; vx: number; vy: number }[]
@@ -421,6 +431,33 @@ export default function ArcadeScreen() {
   const removePlayerProjectile = (projId: number) => {
     setPlayerProjectiles(prev => prev.filter((p) => p.id !== projId));
   };
+
+  // Suppose we press Melee => reduce stamina & start slash
+  function handleMelee() {
+    console.log('Melee pressed. current isSlashing=', isSlashing);
+    if (playerStamina < 10) {
+      console.log('Not enough stamina to slash!');
+      return;
+    }
+    setPlayerStamina((prev) => prev - 10);
+    setIsSlashing(true);
+  }
+  
+
+  // If you want collision detection, define a function:
+  function handleSwordCollision(box: { x: number; y: number; w: number; h: number }) {
+    // For example, if you have an array of enemies with bounding boxes,
+    // you can check overlap here. We do a simple log:
+    console.log('Sword slash box:', box);
+
+    // Check each enemy bounding box:
+    // enemies.forEach((enemy) => {
+    //   if (boxOverlap(box, enemy)) {
+    //     console.log('Hit enemy', enemy.id);
+    //     // reduce HP, etc.
+    //   }
+    // });
+  }
 
   return (
     <View style={styles.container}>
@@ -577,6 +614,22 @@ export default function ArcadeScreen() {
         currentBossHealth={currentBossHP}
       />
 
+      {/* The slash component */}
+      <PlayerSwordSlash
+        direction={direction}
+        playerX={playerWorldPos.x}
+        playerY={playerWorldPos.y}
+        offsetX={offsetX}
+        offsetY={offsetY}
+        isSlashing={isSlashing}
+        onEndSlash={() => {
+          console.log('[Arcade] onEndSlash -> setIsSlashing(false)');
+          setIsSlashing(false);
+        }}
+        onCheckCollision={handleSwordCollision}
+      />
+
+
       {/* GAME CONTROLLER */}
       <GameController
         onMove={(dx, dy, dir) => handleMove(dx, dy, dir)}
@@ -584,6 +637,7 @@ export default function ArcadeScreen() {
         onDash={() => console.log('Dash!')}
         onSpecial={() => console.log('Special!')}
         onUseItem={() => console.log('Use item!')}
+        onMelee={handleMelee}
       />
 
       {/* PAUSE BUTTON */}

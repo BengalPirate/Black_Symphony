@@ -15,6 +15,7 @@ type GameControllerProps = {
   onDash: () => void;
   onSpecial: () => void;
   onUseItem: () => void;
+  onMelee: () => void;
 };
 
 const JOYSTICK_SIZE = 100;
@@ -48,6 +49,7 @@ const GameController: React.FC<GameControllerProps> = ({
   onDash,
   onSpecial,
   onUseItem,
+  onMelee
 }) => {
   // Movement joystick knob
   const [movementKnobX, setMovementKnobX] = useState(0);
@@ -184,6 +186,10 @@ const GameController: React.FC<GameControllerProps> = ({
           <Text style={styles.buttonText}>Dash</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={[styles.button, styles.meleeButton]} onPress={onMelee}>
+          <Text style={styles.buttonText}>Melee</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={[styles.button, styles.rightButton]} onPress={onUseItem}>
           <Text style={styles.buttonText}>Use</Text>
         </TouchableOpacity>
@@ -280,6 +286,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     top: 60,
+  },
+
+  // "Melee" - new: place it below dash, so top: ~130
+  meleeButton: {
+    position: 'absolute',
+    left: 20,
+    top: 130,
   },
 
   // "Use" horizontally aligned with "Special"
