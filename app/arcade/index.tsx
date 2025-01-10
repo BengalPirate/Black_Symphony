@@ -25,6 +25,9 @@ import ShieldBar from '@/components/playerstats/ShieldBar';
 import StaminaBar from '@/components/playerstats/StaminaBar';
 import HealthBar from '@/components/playerstats/HealthBar';
 import SpecialAttackBar from '@/components/playerstats/SpecialAttackBar';
+import { useRouter } from 'expo-router';
+
+// Add the missing interface
 
 // Define your navigation parameter list type
 type RootStackParamList = {
@@ -44,13 +47,18 @@ interface DimensionsChangePayload {
   screen: ScaledSize;
 }
 
+const initialWidth = Dimensions.get('window').width;
+const initialHeight = Dimensions.get('window').height;
+
 const MOVE_SPEED = 20;
 const TILE_SIZE = 32;
 
 export default function ArcadeScreen() {
+
+  const router = useRouter();
   const navigation = useNavigation<NavigationProp>();
 
-  // Track actual device width/height state
+
   const [deviceWidth, setDeviceWidth] = useState(initialWidth);
   const [deviceHeight, setDeviceHeight] = useState(initialHeight);
 
@@ -62,6 +70,7 @@ export default function ArcadeScreen() {
     return () => subscription.remove();
   }, []);
 
+
   // Calculate total map size in "world coordinates."
   const mapWidthPx = HellscapeMap.width * TILE_SIZE;
   const mapHeightPx = HellscapeMap.height * TILE_SIZE;
@@ -72,25 +81,13 @@ export default function ArcadeScreen() {
     y: mapHeightPx / 2,
   });
 
-  // Player state
   const [direction, setDirection] = useState<Direction>('down');
   const [isMoving, setIsMoving] = useState(false);
-
-  // Pause
   const [isPaused, setIsPaused] = useState(false);
-
-  const handlePausePress = () => {
-    setIsPaused(false);
-    navigation.navigate('menu');
-  };
-
-  // Joystick-based movement
   const [joystickDirection, setJoystickDirection] = useState({ dx: 0, dy: 0 });
 
-  // requestAnimationFrame
   const frameRequestRef = useRef<number | null>(null);
 
-  // Extract collision polygons
   const [barriers] = useState(() => {
     const polygons: { x: number; y: number }[][] = [];
     for (const layer of HellscapeMap.layers) {
@@ -114,13 +111,14 @@ export default function ArcadeScreen() {
   });
 
   const handleMove = (dx: number, dy: number, newDirection: Direction) => {
+    if (isPaused) return;
+
     if (dx === 0 && dy === 0) {
       setIsMoving(false);
     } else {
       setIsMoving(true);
       setDirection(newDirection);
 
-      // Single immediate step
       setPlayerWorldPos((prevPos) => {
         const stepX = prevPos.x + dx * MOVE_SPEED;
         const stepY = prevPos.y + dy * MOVE_SPEED;
@@ -139,12 +137,13 @@ export default function ArcadeScreen() {
   };
 
   const handleShoot = (dx: number, dy: number) => {
-    if (dx === 0 && dy === 0) return;
+    if (isPaused || dx === 0 && dy === 0) return;
     console.log(`Shooting dx=${dx}, dy=${dy}`);
   };
 
-  // Animate loop
   const animate = () => {
+    if (isPaused) return;
+
     const { dx, dy } = joystickDirection;
     if (dx !== 0 || dy !== 0) {
       const length = Math.sqrt(dx*dx + dy*dy);
@@ -165,13 +164,14 @@ export default function ArcadeScreen() {
   };
 
   useEffect(() => {
-    frameRequestRef.current = requestAnimationFrame(animate);
+    if (!isPaused) {
+      frameRequestRef.current = requestAnimationFrame(animate);
+    }
     return () => {
       if (frameRequestRef.current) cancelAnimationFrame(frameRequestRef.current);
     };
-  }, [joystickDirection, barriers]);
+  }, [isPaused, joystickDirection, barriers]);
 
-  // Instead of static SCREEN_WIDTH, use deviceWidth
   const offsetX = deviceWidth/2 - playerWorldPos.x;
   const offsetY = deviceHeight/2 - playerWorldPos.y;
 
@@ -324,9 +324,15 @@ export default function ArcadeScreen() {
       <GameController
         onMove={(dx, dy, dir) => handleMove(dx, dy, dir)}
         onShoot={handleShoot}
-        onDash={() => console.log('Dash!')}
-        onSpecial={() => console.log('Special!')}
-        onUseItem={() => console.log('Use item!')}
+        onDash={() => {
+          if (!isPaused) console.log('Dash!');
+        }}
+        onSpecial={() => {
+          if (!isPaused) console.log('Special!');
+        }}
+        onUseItem={() => {
+          if (!isPaused) console.log('Use item!');
+        }}
       />
 
       <TouchableOpacity
@@ -344,9 +350,8 @@ export default function ArcadeScreen() {
           >
             <Text style={styles.pauseText}>Resume</Text>
           </TouchableOpacity>
-
           <TouchableOpacity
-            onPress={handlePausePress}
+            onPress={() => router.push('/menu')}
             style={styles.menuButton}
           >
             <Text style={styles.pauseText}>Quit</Text>
@@ -374,7 +379,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     right: 20,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: '#3a3a3a',
     padding: 10,
     borderRadius: 5,
     zIndex: 9999,
