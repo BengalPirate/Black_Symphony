@@ -21,7 +21,7 @@ import GameController from '../../components/GameController';
 import Sprite from '@/components/Sprite';
 
 // Multiple sprite sheets
-import spriteSheet from '../../assets/sprites/stat_sprites/stats.png';   // For "low" special
+import spriteSheet from '../../assets/sprites/stat_sprites/stats.png';   // For “low” special
 import spriteSheet2 from '../../assets/sprites/stat_sprites/stats2.png';
 import spriteSheet3 from '../../assets/sprites/stat_sprites/stats3.png'; // For charged + super
 
@@ -71,9 +71,7 @@ const PROJECTILE_ANCHOR_X = 64;
 const PROJECTILE_ANCHOR_Y = 80;
 
 /**
- * Additional manual shift offsets:
- * e.g., SHIFT_X = 20 => shift 20px to the right
- *       SHIFT_Y = -10 => shift 10px upward
+ * Example SHIFT offsets 
  */
 const SHIFT_X = 310;
 const SHIFT_Y = -175;
@@ -136,15 +134,14 @@ export default function ArcadeScreen() {
     y: mapHeightPx / 2,
   });
 
-  // Ref for the newest position
+  // Ref for newest position
   const playerPosRef = useRef<Position>(playerWorldPos);
 
-  const updatePlayerPos = (x: number, y: number) => {
+  function updatePlayerPos(x: number, y: number) {
     setPlayerWorldPos({ x, y });
     playerPosRef.current = { x, y };
-  };
+  }
 
-  // Movement
   const [direction, setDirection] = useState<Direction>('down');
   const [isMoving, setIsMoving] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -174,7 +171,7 @@ export default function ArcadeScreen() {
     return polygons;
   });
 
-  const handleMove = (dx: number, dy: number, newDirection: Direction) => {
+  function handleMove(dx: number, dy: number, newDirection: Direction) {
     if (dx === 0 && dy === 0) {
       setIsMoving(false);
     } else {
@@ -202,9 +199,9 @@ export default function ArcadeScreen() {
       });
     }
     setJoystickDirection({ dx, dy });
-  };
+  }
 
-  const animate = () => {
+  function animate() {
     if (!isPaused) {
       const { dx, dy } = joystickDirection;
       if (dx !== 0 || dy !== 0) {
@@ -226,7 +223,7 @@ export default function ArcadeScreen() {
       }
     }
     frameRequestRef.current = requestAnimationFrame(animate);
-  };
+  }
 
   useEffect(() => {
     frameRequestRef.current = requestAnimationFrame(animate);
@@ -239,7 +236,7 @@ export default function ArcadeScreen() {
   const offsetX = deviceWidth / 2 - playerWorldPos.x;
   const offsetY = deviceHeight / 2 - playerWorldPos.y;
 
-  // Anim arrays
+  // For the special bar animations
   const specialLowFrames = [32, 64, 96, 128, 160];
   const specialMedFrames = [32, 64, 96, 128, 160];
   const specialHighFrames = [32, 64, 96, 128, 160];
@@ -258,7 +255,6 @@ export default function ArcadeScreen() {
   const rageMeterFrames = [0, 32, 64, 96, 128];
   const bossFrames = [0, 32, 64, 96, 128, 160, 192, 192, 160, 128, 96, 64, 32, 0];
 
-  // Basic anim states
   const [heartFrameIndex, setHeartFrameIndex] = useState(0);
   useEffect(() => {
     const intId = setInterval(() => {
@@ -314,7 +310,7 @@ export default function ArcadeScreen() {
 
   useEffect(() => {
     let intId: NodeJS.Timeout | null = null;
-    const ratio = playerSpecial / playerMaxSpecial; // up to 2.0
+    const ratio = playerSpecial / playerMaxSpecial; 
     if (ratio > 0) {
       intId = setInterval(() => {
         setSpecialFrameIndex((prev) => prev + 1);
@@ -385,14 +381,12 @@ export default function ArcadeScreen() {
   const [isSlashing, setIsSlashing] = useState(false);
 
   // Projectiles
-  // Notice we store both "logicX, logicY" for collisions + "x, y" for rendering
-  // if we want them to appear exactly at the player's location logically.
   interface ProjectileData {
     id: number;
-    logicX: number; // used for collisions or "recognizing" it's at the player's location
+    logicX: number;
     logicY: number;
-    x: number;      // final "anchored + SHIFT" world position for rendering
-    y: number;
+    x: number;      
+    y: number;      
     vx: number;
     vy: number;
   }
@@ -400,7 +394,7 @@ export default function ArcadeScreen() {
   const [playerProjectiles, setPlayerProjectiles] = useState<ProjectileData[]>([]);
   const nextProjectileId = useRef(1);
 
-  const handleShoot = (dx: number, dy: number) => {
+  function handleShoot(dx: number, dy: number) {
     if (dx === 0 && dy === 0) return;
     const length = Math.sqrt(dx * dx + dy * dy);
     if (length < 0.001) return;
@@ -410,15 +404,10 @@ export default function ArcadeScreen() {
 
     const { x: currentX, y: currentY } = playerPosRef.current;
 
-    // logicX, logicY => EXACT player's location (so collisions say it's at the same spot)
-    // x, y          => "anchored + SHIFT" => for rendering
     const logicX = currentX;
     const logicY = currentY;
     const renderX = currentX - PROJECTILE_ANCHOR_X + SHIFT_X;
     const renderY = currentY - PROJECTILE_ANCHOR_Y + SHIFT_Y;
-
-    console.log('Shooting from (logic):', logicX, logicY);
-    console.log('  -> Rendering at:', renderX, renderY);
 
     setPlayerProjectiles((prev) => [
       ...prev,
@@ -432,11 +421,11 @@ export default function ArcadeScreen() {
         vy,
       },
     ]);
-  };
+  }
 
-  const removePlayerProjectile = (projId: number) => {
+  function removePlayerProjectile(projId: number) {
     setPlayerProjectiles((prev) => prev.filter((p) => p.id !== projId));
-  };
+  }
 
   function handleMelee() {
     if (isSlashing) {
@@ -457,10 +446,6 @@ export default function ArcadeScreen() {
   function handleSwordCollision(box: { x: number; y: number; w: number; h: number }) {
     console.log('Sword slash box:', box);
   }
-
-  // Debug logs
-  console.log('Player world position:', playerWorldPos);
-  console.log('Camera offset:', { offsetX, offsetY });
 
   return (
     <View style={styles.container}>
@@ -557,7 +542,7 @@ export default function ArcadeScreen() {
         />
       </View>
 
-      {/* SPECIAL ICON: dynamic */}
+      {/* SPECIAL ICON */}
       <View style={{ position: 'absolute', top: 340, left: 180 }}>
         {renderSpecialSprite()}
       </View>
@@ -566,7 +551,6 @@ export default function ArcadeScreen() {
       {playerProjectiles.map((proj) => (
         <PlayerProjectile
           key={proj.id}
-          // We pass the "render" coords
           startX={proj.x}
           startY={proj.y}
           velocityX={proj.vx}
@@ -575,10 +559,13 @@ export default function ArcadeScreen() {
           onRemove={() => removePlayerProjectile(proj.id)}
           offsetX={offsetX}
           offsetY={offsetY}
+          // Pass the map's actual size for the bounding
+          mapWidth={mapWidthPx}
+          mapHeight={mapHeightPx}
         />
       ))}
 
-      {/* Collision debug, etc. */}
+      {/* Collision debug */}
       <Svg style={StyleSheet.absoluteFill}>
         <G transform={`translate(${offsetX}, ${offsetY})`}>
           {barriers.map((poly, idx) => {

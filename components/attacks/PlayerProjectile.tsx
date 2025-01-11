@@ -3,14 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 
 interface PlayerProjectileProps {
-  startX: number;        
-  startY: number;        
-  velocityX: number;     
-  velocityY: number;     
-  speed: number;         
-  onRemove: () => void;  
-  offsetX: number;       // pass from ArcadeScreen
-  offsetY: number;       // pass from ArcadeScreen
+  startX: number;
+  startY: number;
+  velocityX: number;
+  velocityY: number;
+  speed: number;
+  onRemove: () => void;
+  offsetX: number;
+  offsetY: number;
+  // NEW PROPS: The map's real boundaries
+  mapWidth: number;
+  mapHeight: number;
 }
 
 export default function PlayerProjectile({
@@ -22,6 +25,8 @@ export default function PlayerProjectile({
   onRemove,
   offsetX,
   offsetY,
+  mapWidth,
+  mapHeight,
 }: PlayerProjectileProps) {
   // Store position in world coords
   const [pos, setPos] = useState({ x: startX, y: startY });
@@ -37,12 +42,13 @@ export default function PlayerProjectile({
     return () => clearInterval(interval);
   }, [velocityX, velocityY, speed]);
 
-  // Remove if out of some bounding region
+  // Remove if out of the map boundaries
   useEffect(() => {
-    if (pos.x < -200 || pos.x > 2000 || pos.y < -200 || pos.y > 2000) {
+    // If projectile is outside the map, remove it
+    if (pos.x < 0 || pos.x > mapWidth || pos.y < 0 || pos.y > mapHeight) {
       onRemove();
     }
-  }, [pos, onRemove]);
+  }, [pos, onRemove, mapWidth, mapHeight]);
 
   // Convert world -> screen by applying offset
   const screenX = pos.x + offsetX;
