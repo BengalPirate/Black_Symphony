@@ -6,6 +6,7 @@ interface ActionButtonsProps {
   onShoot: () => void;
   onSpecial: () => void;
   onUseItem: () => void;
+  onMelee: () => void;
 }
 
 const { width, height } = Dimensions.get('window');
@@ -13,7 +14,7 @@ const { width, height } = Dimensions.get('window');
 const BUTTON_SIZE = 60;
 const BUTTON_MARGIN = 20;
 
-const ActionButtons: React.FC<ActionButtonsProps> = ({ onDash, onShoot, onSpecial, onUseItem }) => {
+const ActionButtons: React.FC<ActionButtonsProps> = ({ onDash, onShoot, onSpecial, onUseItem, onMelee, }) => {
   return (
     <View style={styles.container}>
       {/* Dash (Bottom) */}
@@ -34,6 +35,11 @@ const ActionButtons: React.FC<ActionButtonsProps> = ({ onDash, onShoot, onSpecia
       {/* Use Item (Left) */}
       <TouchableOpacity onPress={onUseItem} style={[styles.button, styles.leftButton]}>
         <Text style={styles.buttonText}>Use</Text>
+      </TouchableOpacity>
+
+      {/* Melee (Below Dash) */}
+      <TouchableOpacity onPress={onMelee} style={[styles.button, styles.meleeButton]}>
+        <Text style={styles.buttonText}>Melee</Text>
       </TouchableOpacity>
     </View>
   );
@@ -71,6 +77,10 @@ const styles = StyleSheet.create({
   leftButton: {
     top: BUTTON_SIZE / 2, // Place at the left of the diamond
     left: 0,
+  },
+  meleeButton: {
+    top: BUTTON_SIZE * 2 + BUTTON_MARGIN, 
+    left: BUTTON_SIZE + BUTTON_MARGIN / 2,
   },
   buttonText: {
     color: 'white',

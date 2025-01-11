@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import PlayerSwordSlash from '@/components/PlayerSwordSlash';
+
 import {
   View,
   Modal,
@@ -9,35 +11,49 @@ import {
   ScaledSize,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import Svg, { G, Polygon } from 'react-native-svg';
+
+import { useRouter } from 'expo-router';
+
 import Player from '../../components/Player';
+import EnemyDragon from '../../components/EnemyDragon';
 import GameController from '../../components/GameController';
 import Sprite from '@/components/Sprite';
-import spriteSheet from '../../assets/sprites/stat_sprites/stats.png';
+
+// Multiple sprite sheets
+import spriteSheet from '../../assets/sprites/stat_sprites/stats.png';   // For “low” special
+import spriteSheet2 from '../../assets/sprites/stat_sprites/stats2.png';
+import spriteSheet3 from '../../assets/sprites/stat_sprites/stats3.png'; // For charged + super
+
 import { Direction } from '../../constants/types';
 import { HellscapeMap } from '../../assets/maps/HellscapeMap';
 import { movePlayer, Position } from '../../controllers/playerController';
 import TiledMap from '../../components/TiledMap';
 import mapFullImage from '../../assets/maps/map_full.png';
+
+// Bars/components
 import ShieldBar from '@/components/playerstats/ShieldBar';
 import StaminaBar from '@/components/playerstats/StaminaBar';
 import HealthBar from '@/components/playerstats/HealthBar';
 import SpecialAttackBar from '@/components/playerstats/SpecialAttackBar';
-import { useRouter } from 'expo-router';
+import RageMeterBar from '@/components/playerstats/RageMeterBar';
+import TimerBar from '@/components/playerstats/TimerBar';
+import BossHealthBar from '@/components/enemystats/BossHealthBar';
+import PlayerProjectile from '@/components/attacks/PlayerProjectile';
 
-// Add the missing interface
+// Redux
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store';
 
-// Define your navigation parameter list type
-type RootStackParamList = {
-  menu: undefined;
-  arcade: undefined;
-  // Add other screen routes as needed
-};
-
-// Create a typed navigation prop
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'arcade'>;
+// All mage frames
+import { fireMageFrames } from '@/assets/sprites/player_sprites/fire_mage/fireMageFrames';
+import { earthMageFrames } from '@/assets/sprites/player_sprites/earth_mage/earthMageFrames';
+import { iceMageFrames } from '@/assets/sprites/player_sprites/ice_mage/iceMageFrames';
+import { lightMageFrames } from '@/assets/sprites/player_sprites/light_mage/lightMageFrames';
+import { windMageFrames } from '@/assets/sprites/player_sprites/wind_mage/windMageFrames';
+import { timeMageFrames } from '@/assets/sprites/player_sprites/time_mage/timeMageFrames';
+import { lightiningMageFrames } from '@/assets/sprites/player_sprites/lightning_mage/lightningMageFrames';
+import { darkMageFrames } from '@/assets/sprites/player_sprites/dark_mage/darkMageFrames';
 
 const initialWidth = Dimensions.get('window').width;
 const initialHeight = Dimensions.get('window').height;
@@ -47,47 +63,92 @@ interface DimensionsChangePayload {
   screen: ScaledSize;
 }
 
-const initialWidth = Dimensions.get('window').width;
-const initialHeight = Dimensions.get('window').height;
-
-const MOVE_SPEED = 20;
+const MOVE_SPEED = 3;
 const TILE_SIZE = 32;
 
+// Half of the player's on-screen sprite size (128×160 => 64×80)
+const PROJECTILE_ANCHOR_X = 64;
+const PROJECTILE_ANCHOR_Y = 80;
+
+/**
+ * Example SHIFT offsets 
+ */
+const SHIFT_X = 310;
+const SHIFT_Y = -175;
+
 export default function ArcadeScreen() {
-
   const router = useRouter();
-  const navigation = useNavigation<NavigationProp>();
 
+  // 1) Mage selection
+  const selectedMage = useSelector((state: RootState) => state.mage.selectedMage);
 
+  // 2) Choose frame set
+  let frames;
+  switch (selectedMage) {
+    case 'earth':
+      frames = earthMageFrames;
+      break;
+    case 'ice':
+      frames = iceMageFrames;
+      break;
+    case 'light':
+      frames = lightMageFrames;
+      break;
+    case 'wind':
+      frames = windMageFrames;
+      break;
+    case 'time':
+      frames = timeMageFrames;
+      break;
+    case 'lightning':
+      frames = lightiningMageFrames;
+      break;
+    case 'dark':
+      frames = darkMageFrames;
+      break;
+    default:
+      frames = fireMageFrames;
+      break;
+  }
+
+  // Device dims
   const [deviceWidth, setDeviceWidth] = useState(initialWidth);
   const [deviceHeight, setDeviceHeight] = useState(initialHeight);
 
   useEffect(() => {
     const handleDimChange = ({ window, screen }: DimensionsChangePayload) => {
-      // ...
+      setDeviceWidth(window.width);
+      setDeviceHeight(window.height);
     };
     const subscription = Dimensions.addEventListener('change', handleDimChange);
     return () => subscription.remove();
   }, []);
 
-
-  // Calculate total map size in "world coordinates."
+  // Map size
   const mapWidthPx = HellscapeMap.width * TILE_SIZE;
   const mapHeightPx = HellscapeMap.height * TILE_SIZE;
 
-  // Player's "world" position
+  // Player position
   const [playerWorldPos, setPlayerWorldPos] = useState<Position>({
     x: mapWidthPx / 2,
     y: mapHeightPx / 2,
   });
 
+  // Ref for newest position
+  const playerPosRef = useRef<Position>(playerWorldPos);
+
+  function updatePlayerPos(x: number, y: number) {
+    setPlayerWorldPos({ x, y });
+    playerPosRef.current = { x, y };
+  }
+
   const [direction, setDirection] = useState<Direction>('down');
   const [isMoving, setIsMoving] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [joystickDirection, setJoystickDirection] = useState({ dx: 0, dy: 0 });
-
   const frameRequestRef = useRef<number | null>(null);
 
+  // Collision polygons
   const [barriers] = useState(() => {
     const polygons: { x: number; y: number }[][] = [];
     for (const layer of HellscapeMap.layers) {
@@ -110,129 +171,285 @@ export default function ArcadeScreen() {
     return polygons;
   });
 
-  const handleMove = (dx: number, dy: number, newDirection: Direction) => {
-    if (isPaused) return;
-
+  function handleMove(dx: number, dy: number, newDirection: Direction) {
     if (dx === 0 && dy === 0) {
       setIsMoving(false);
     } else {
       setIsMoving(true);
       setDirection(newDirection);
 
+      // Normalize
+      const length = Math.sqrt(dx * dx + dy * dy);
+      if (length > 0.0001) {
+        dx /= length;
+        dy /= length;
+      }
+
       setPlayerWorldPos((prevPos) => {
         const stepX = prevPos.x + dx * MOVE_SPEED;
         const stepY = prevPos.y + dy * MOVE_SPEED;
-        return movePlayer(
-          {
-            x: Math.max(0, Math.min(mapWidthPx, stepX)),
-            y: Math.max(0, Math.min(mapHeightPx, stepY)),
-          },
+        const newPos = movePlayer(
+          { x: stepX, y: stepY },
           dx * MOVE_SPEED,
           dy * MOVE_SPEED,
           barriers
         );
+        playerPosRef.current = newPos;
+        return newPos;
       });
     }
     setJoystickDirection({ dx, dy });
-  };
+  }
 
-  const handleShoot = (dx: number, dy: number) => {
-    if (isPaused || dx === 0 && dy === 0) return;
-    console.log(`Shooting dx=${dx}, dy=${dy}`);
-  };
-
-  const animate = () => {
-    if (isPaused) return;
-
-    const { dx, dy } = joystickDirection;
-    if (dx !== 0 || dy !== 0) {
-      const length = Math.sqrt(dx*dx + dy*dy);
-      if (length > 0.001) {
-        const ndx = (dx/length)*MOVE_SPEED;
-        const ndy = (dy/length)*MOVE_SPEED;
-        setPlayerWorldPos((prevPos) => 
-          movePlayer(
-            { x: prevPos.x + ndx, y: prevPos.y + ndy },
-            ndx,
-            ndy,
-            barriers
-          )
-        );
+  function animate() {
+    if (!isPaused) {
+      const { dx, dy } = joystickDirection;
+      if (dx !== 0 || dy !== 0) {
+        const length = Math.sqrt(dx * dx + dy * dy);
+        if (length > 0.001) {
+          const ndx = (dx / length) * MOVE_SPEED;
+          const ndy = (dy / length) * MOVE_SPEED;
+          setPlayerWorldPos((prevPos) => {
+            const nextPos = movePlayer(
+              { x: prevPos.x + ndx, y: prevPos.y + ndy },
+              ndx,
+              ndy,
+              barriers
+            );
+            playerPosRef.current = nextPos;
+            return nextPos;
+          });
+        }
       }
     }
     frameRequestRef.current = requestAnimationFrame(animate);
-  };
+  }
 
   useEffect(() => {
-    if (!isPaused) {
-      frameRequestRef.current = requestAnimationFrame(animate);
-    }
+    frameRequestRef.current = requestAnimationFrame(animate);
     return () => {
       if (frameRequestRef.current) cancelAnimationFrame(frameRequestRef.current);
     };
-  }, [isPaused, joystickDirection, barriers]);
+  }, [joystickDirection, barriers, isPaused]);
 
-  const offsetX = deviceWidth/2 - playerWorldPos.x;
-  const offsetY = deviceHeight/2 - playerWorldPos.y;
+  // Camera offset
+  const offsetX = deviceWidth / 2 - playerWorldPos.x;
+  const offsetY = deviceHeight / 2 - playerWorldPos.y;
+
+  // For the special bar animations
+  const specialLowFrames = [32, 64, 96, 128, 160];
+  const specialMedFrames = [32, 64, 96, 128, 160];
+  const specialHighFrames = [32, 64, 96, 128, 160];
 
   const heartFrames = [32, 64, 96, 128, 160, 192, 160, 128, 96, 64];
-  const specialFrames = [32, 64, 96, 128, 160];
   const staminaFrames = [32, 64, 96, 128, 160, 128, 96, 64];
   const shieldFrames = [0, 32, 64, 96, 128, 160, 192, 192, 160, 128, 96, 64, 32, 0];
-  
-  // Row offsets in sprite sheet (for each icon):
-  const HEART_Y = 0;     // 1st row
-  const SPECIAL_Y = 96;  // 2nd row
-  const STAMINA_Y = 144; // 4th row
-  const SHIELD_Y =  192; // 5th row
 
-  // Frame indices and their effects
+  const timerMovingFrames = [0, 32, 64, 96, 128, 160];
+  const timerResetFrames = [0, 32, 64, 96, 128, 160, 192];
+  const combinedTimerFrames = [
+    ...timerMovingFrames.map((x) => ({ x, y: 48 })),
+    ...timerResetFrames.map((x) => ({ x, y: 96 })),
+  ];
+
+  const rageMeterFrames = [0, 32, 64, 96, 128];
+  const bossFrames = [0, 32, 64, 96, 128, 160, 192, 192, 160, 128, 96, 64, 32, 0];
+
   const [heartFrameIndex, setHeartFrameIndex] = useState(0);
-  const [staminaFrameIndex, setStaminaFrameIndex] = useState(0);
-  const [specialFrameIndex, setSpecialFrameIndex] = useState(0);
-  const [shieldFrameIndex, setShieldFrameIndex] = useState(0);
-
-  // Animation intervals
   useEffect(() => {
-    const heartInterval = setInterval(() => {
+    const intId = setInterval(() => {
       setHeartFrameIndex((prev) => (prev + 1) % heartFrames.length);
     }, 150);
-    return () => clearInterval(heartInterval);
+    return () => clearInterval(intId);
   }, []);
 
+  const [staminaFrameIndex, setStaminaFrameIndex] = useState(0);
   useEffect(() => {
-    const staminaInterval = setInterval(() => {
+    const intId = setInterval(() => {
       setStaminaFrameIndex((prev) => (prev + 1) % staminaFrames.length);
     }, 70);
-    return () => clearInterval(staminaInterval);
+    return () => clearInterval(intId);
   }, []);
 
+  const [shieldFrameIndex, setShieldFrameIndex] = useState(0);
   useEffect(() => {
-    const specialInterval = setInterval(() => {
-      setSpecialFrameIndex((prev) => (prev + 1) % specialFrames.length);
-    }, 70);
-    return () => clearInterval(specialInterval);
-  }, []);
-
-  useEffect(() => {
-    const shieldInterval = setInterval(() => {
+    const intId = setInterval(() => {
       setShieldFrameIndex((prev) => (prev + 1) % shieldFrames.length);
     }, 100);
-    return () => clearInterval(shieldInterval);
+    return () => clearInterval(intId);
   }, []);
 
-  // Player stats
-  const [playerHealth, setPlayerHealth] = useState(80);
-  const [playerMaxHealth, setPlayerMaxHealth] = useState(100);
-  const [playerStamina, setPlayerStamina] = useState(50);
-  const [playerMaxStamina, setPlayerMaxStamina] = useState(100);
-  const [playerSpecial, setPlayerSpecial] = useState(25);
+  const [timerFrameIndex, setTimerFrameIndex] = useState(0);
+  useEffect(() => {
+    const intId = setInterval(() => {
+      setTimerFrameIndex((prev) => (prev + 1) % combinedTimerFrames.length);
+    }, 150);
+    return () => clearInterval(intId);
+  }, []);
+  const currentTimerFrame = combinedTimerFrames[timerFrameIndex];
+
+  const [rageMeterFrameIndex, setRageMeterFrameIndex] = useState(0);
+  useEffect(() => {
+    const intId = setInterval(() => {
+      setRageMeterFrameIndex((prev) => (prev + 1) % rageMeterFrames.length);
+    }, 35);
+    return () => clearInterval(intId);
+  }, []);
+
+  const [bossFrameIndex, setBossFrameIndex] = useState(0);
+  useEffect(() => {
+    const intId = setInterval(() => {
+      setBossFrameIndex((prev) => (prev + 1) % bossFrames.length);
+    }, 35);
+    return () => clearInterval(intId);
+  }, []);
+
+  const [playerSpecial, setPlayerSpecial] = useState(150);
   const [playerMaxSpecial, setPlayerMaxSpecial] = useState(100);
+  const [specialFrameIndex, setSpecialFrameIndex] = useState(0);
+
+  useEffect(() => {
+    let intId: NodeJS.Timeout | null = null;
+    const ratio = playerSpecial / playerMaxSpecial; 
+    if (ratio > 0) {
+      intId = setInterval(() => {
+        setSpecialFrameIndex((prev) => prev + 1);
+      }, 70);
+    } else {
+      setSpecialFrameIndex(0);
+    }
+    return () => {
+      if (intId) clearInterval(intId);
+    };
+  }, [playerSpecial, playerMaxSpecial]);
+
+  function renderSpecialSprite() {
+    const ratio = playerSpecial / playerMaxSpecial;
+    let framesArray: number[];
+    let sheet: any;
+    let rowY: number;
+
+    if (ratio < 1.0) {
+      framesArray = specialLowFrames;
+      sheet = spriteSheet;
+      rowY = 96; 
+    } else if (ratio < 1.5) {
+      framesArray = specialMedFrames;
+      sheet = spriteSheet3;
+      rowY = 0; 
+    } else {
+      framesArray = specialHighFrames;
+      sheet = spriteSheet3;
+      rowY = 48; 
+    }
+
+    const index = specialFrameIndex % framesArray.length;
+    const xPos = framesArray[index];
+
+    return (
+      <Sprite
+        spriteSheet={sheet}
+        x={xPos}
+        y={rowY}
+        width={32}
+        height={48}
+        scale={1}
+      />
+    );
+  }
+
+  // Player stats
+  const [playerHealth, setPlayerHealth] = useState(100);
+  const [playerMaxHealth, setPlayerMaxHealth] = useState(100);
+
+  const [playerStamina, setPlayerStamina] = useState(100);
+  const [playerMaxStamina, setPlayerMaxStamina] = useState(100);
+
   const [currentShield, setCurrentShield] = useState(30);
   const [maxShield, setMaxShield] = useState(100);
 
+  const [currentRage, setCurrentRage] = useState(50);
+  const [maxRage, setMaxRage] = useState(100);
+
+  const [currentTime, setCurrentTime] = useState(10);
+  const [maxTime, setMaxTime] = useState(30);
+
+  const [currentBossHP, setCurrentBossHP] = useState(7000);
+  const [maxBossHP, setMaxBossHP] = useState(10000);
+
+  // Slashing
+  const [isSlashing, setIsSlashing] = useState(false);
+
+  // Projectiles
+  interface ProjectileData {
+    id: number;
+    logicX: number;
+    logicY: number;
+    x: number;      
+    y: number;      
+    vx: number;
+    vy: number;
+  }
+
+  const [playerProjectiles, setPlayerProjectiles] = useState<ProjectileData[]>([]);
+  const nextProjectileId = useRef(1);
+
+  function handleShoot(dx: number, dy: number) {
+    if (dx === 0 && dy === 0) return;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    if (length < 0.001) return;
+    const vx = dx / length;
+    const vy = dy / length;
+    const newId = nextProjectileId.current++;
+
+    const { x: currentX, y: currentY } = playerPosRef.current;
+
+    const logicX = currentX;
+    const logicY = currentY;
+    const renderX = currentX - PROJECTILE_ANCHOR_X + SHIFT_X;
+    const renderY = currentY - PROJECTILE_ANCHOR_Y + SHIFT_Y;
+
+    setPlayerProjectiles((prev) => [
+      ...prev,
+      {
+        id: newId,
+        logicX,
+        logicY,
+        x: renderX,
+        y: renderY,
+        vx,
+        vy,
+      },
+    ]);
+  }
+
+  function removePlayerProjectile(projId: number) {
+    setPlayerProjectiles((prev) => prev.filter((p) => p.id !== projId));
+  }
+
+  function handleMelee() {
+    if (isSlashing) {
+      console.log('Already slashing, ignoring input.');
+      return;
+    }
+    if (playerStamina < 10) {
+      console.log('Not enough stamina to slash!');
+      return;
+    }
+    setPlayerStamina((prev) => prev - 10);
+    setIsSlashing(true);
+    setTimeout(() => {
+      setIsSlashing(false);
+    }, 500);
+  }
+
+  function handleSwordCollision(box: { x: number; y: number; w: number; h: number }) {
+    console.log('Sword slash box:', box);
+  }
+
   return (
     <View style={styles.container}>
+      {/* MAP */}
       <View style={styles.mapContainer}>
         <View style={{ transform: [{ translateX: offsetX }, { translateY: offsetY }] }}>
           <TiledMap
@@ -244,60 +461,115 @@ export default function ArcadeScreen() {
         </View>
       </View>
 
+      {/* Bars */}
       <HealthBar currentHealth={playerHealth} maxHealth={playerMaxHealth} />
       <StaminaBar currentStamina={playerStamina} maxStamina={playerMaxStamina} />
       <SpecialAttackBar currentSpecial={playerSpecial} maxSpecial={playerMaxSpecial} />
       <ShieldBar currentShield={currentShield} maxShield={maxShield} />
+      <RageMeterBar currentRage={currentRage} maxRage={maxRage} />
+      <TimerBar currentTime={currentTime} maxTime={maxTime} />
+      <BossHealthBar currentBossHealth={currentBossHP} maxBossHealth={maxBossHP} />
 
-      {/* Sprites */}
+      {/* HEART ICON */}
       <View style={{ position: 'absolute', top: 0, left: 30 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={heartFrames[heartFrameIndex]}
-          y={HEART_Y}
+          y={0}
           width={48}
           height={72}
           scale={1.5}
         />
       </View>
 
+      {/* STAMINA ICON */}
       <View style={{ position: 'absolute', top: 42, left: 30 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={staminaFrames[staminaFrameIndex]}
-          y={STAMINA_Y}
+          y={144}
           width={48}
           height={72}
           scale={1.5}
         />
       </View>
 
-      <View style={{ position: 'absolute', top: 288, left: 200 }}>
+      {/* SHIELD ICON */}
+      <View style={{ position: 'absolute', top: 294, left: 180 }}>
         <Sprite
           spriteSheet={spriteSheet}
           x={shieldFrames[shieldFrameIndex]}
-          y={SHIELD_Y}
+          y={192}
           width={32}
           height={48}
           scale={1}
         />
       </View>
 
-      <View style={{ position: 'absolute', top: 330, left: 200 }}>
+      {/* TIMER ICON */}
+      <View style={{ position: 'absolute', top: 282, left: 620 }}>
         <Sprite
-          spriteSheet={spriteSheet}
-          x={specialFrames[specialFrameIndex]}
-          y={SPECIAL_Y}
-          width={32}
-          height={48}
-          scale={1}
+          spriteSheet={spriteSheet2}
+          x={currentTimerFrame.x}
+          y={currentTimerFrame.y}
+          width={48}
+          height={72}
+          scale={1.5}
         />
       </View>
 
+      {/* RAGE ICON */}
+      <View style={{ position: 'absolute', top: 328, left: 620 }}>
+        <Sprite
+          spriteSheet={spriteSheet2}
+          x={rageMeterFrames[rageMeterFrameIndex]}
+          y={0}
+          width={48}
+          height={72}
+          scale={1.5}
+        />
+      </View>
+
+      {/* BOSS ICON */}
+      <View style={{ position: 'absolute', top: 4, left: 744 }}>
+        <Sprite
+          spriteSheet={spriteSheet2}
+          x={bossFrames[bossFrameIndex]}
+          y={144}
+          width={48}
+          height={72}
+          scale={1.5}
+        />
+      </View>
+
+      {/* SPECIAL ICON */}
+      <View style={{ position: 'absolute', top: 340, left: 180 }}>
+        {renderSpecialSprite()}
+      </View>
+
+      {/* Player projectiles */}
+      {playerProjectiles.map((proj) => (
+        <PlayerProjectile
+          key={proj.id}
+          startX={proj.x}
+          startY={proj.y}
+          velocityX={proj.vx}
+          velocityY={proj.vy}
+          speed={10}
+          onRemove={() => removePlayerProjectile(proj.id)}
+          offsetX={offsetX}
+          offsetY={offsetY}
+          // Pass the map's actual size for the bounding
+          mapWidth={mapWidthPx}
+          mapHeight={mapHeightPx}
+        />
+      ))}
+
+      {/* Collision debug */}
       <Svg style={StyleSheet.absoluteFill}>
         <G transform={`translate(${offsetX}, ${offsetY})`}>
           {barriers.map((poly, idx) => {
-            const pointsStr = poly.map(p => `${p.x},${p.y}`).join(' ');
+            const pointsStr = poly.map((p) => `${p.x},${p.y}`).join(' ');
             return (
               <Polygon
                 key={idx}
@@ -311,7 +583,9 @@ export default function ArcadeScreen() {
         </G>
       </Svg>
 
+      {/* PLAYER */}
       <Player
+        frames={frames}
         x={0}
         y={0}
         direction={direction}
@@ -321,40 +595,75 @@ export default function ArcadeScreen() {
         worldY={playerWorldPos.y}
       />
 
+      {/* Enemy Dragon */}
+      <EnemyDragon
+        worldX={400}
+        worldY={500}
+        offsetX={offsetX}
+        offsetY={offsetY}
+        onUpdateHitbox={(box) => {
+          console.log('Dragon bounding box is', box);
+        }}
+        currentBossHealth={currentBossHP}
+      />
+
+      <PlayerSwordSlash
+        direction={direction}
+        playerWorldPos={playerWorldPos}
+        offsetX={offsetX}
+        offsetY={offsetY}
+        isSlashing={isSlashing}
+        onEndSlash={() => setIsSlashing(false)}
+        onCheckCollision={handleSwordCollision}
+      />
+
+      {/* GAME CONTROLLER */}
       <GameController
         onMove={(dx, dy, dir) => handleMove(dx, dy, dir)}
         onShoot={handleShoot}
-        onDash={() => {
-          if (!isPaused) console.log('Dash!');
-        }}
-        onSpecial={() => {
-          if (!isPaused) console.log('Special!');
-        }}
-        onUseItem={() => {
-          if (!isPaused) console.log('Use item!');
-        }}
+        onDash={() => console.log('Dash!')}
+        onSpecial={() => console.log('Special!')}
+        onUseItem={() => console.log('Use item!')}
+        onMelee={handleMelee}
       />
 
+      {/* Pause Button */}
       <TouchableOpacity
         style={styles.pauseButton}
-        onPress={() => setIsPaused(true)}
+        onPress={() => {
+          setIsPaused(true);
+        }}
       >
         <Text style={styles.pauseText}>Pause</Text>
       </TouchableOpacity>
 
-      <Modal visible={isPaused} transparent={true} animationType="fade">
+      {/* Pause Overlay */}
+      <Modal
+        visible={isPaused}
+        transparent
+        animationType="fade"
+        presentationStyle="overFullScreen"
+        supportedOrientations={['portrait', 'landscape']}
+      >
         <View style={styles.pauseMenu}>
+          <Text style={{ color: '#fff', fontSize: 24, marginBottom: 20 }}>
+            Game Paused
+          </Text>
+
           <TouchableOpacity
+            style={styles.menuButton}
             onPress={() => setIsPaused(false)}
-            style={styles.menuButton}
           >
-            <Text style={styles.pauseText}>Resume</Text>
+            <Text style={{ color: '#fff', fontSize: 16 }}>Resume</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            onPress={() => router.push('/menu')}
             style={styles.menuButton}
+            onPress={() => {
+              router.replace('/menu');
+            }}
           >
-            <Text style={styles.pauseText}>Quit</Text>
+            <Text style={{ color: '#fff', fontSize: 16 }}>Main Menu</Text>
           </TouchableOpacity>
         </View>
       </Modal>
@@ -362,6 +671,7 @@ export default function ArcadeScreen() {
   );
 }
 
+/* ------------------------------------- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -379,15 +689,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     right: 20,
-    backgroundColor: '#3a3a3a',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     padding: 10,
     borderRadius: 5,
     zIndex: 9999,
   },
   pauseText: {
     color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
   },
   pauseMenu: {
     flex: 1,
@@ -396,9 +705,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
   },
   menuButton: {
-    marginVertical: 10,
+    marginTop: 20,
     padding: 15,
-    backgroundColor: '#333',
+    backgroundColor: 'rgba(255,255,255,0.3)',
     borderRadius: 5,
     width: '50%',
     alignItems: 'center',

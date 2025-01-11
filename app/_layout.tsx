@@ -28,6 +28,10 @@ import { Video, ResizeMode } from 'expo-av';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as ExpoAv from 'expo-av';
 
+// 1) Import Redux stuff
+import { Provider } from 'react-redux';
+import { store } from '@/store'; // <-- Adjust path to your store
+
 // -----------------------------------------------------------------------------
 // 1) Create a context for controlling background video + music
 // -----------------------------------------------------------------------------
@@ -202,30 +206,32 @@ export default function Layout() {
   // Render
   // -----------------------------------------------------------------------------
   return (
-    <BgVideoContext.Provider
-      value={{
-        playBackground,
-        setPlayBackground,
-        fadeOutMusicAndStop,
-      }}
-    >
-      <StatusBar hidden />
+    <Provider store={store}>
+      <BgVideoContext.Provider
+        value={{
+          playBackground,
+          setPlayBackground,
+          fadeOutMusicAndStop,
+        }}
+      >
+        <StatusBar hidden />
 
-      <View style={{ flex: 1 }}>
-        {/* If "playBackground" is true, show one of the TitleScreen?.mp4 behind everything */}
-        {playBackground && (
-          <Video
-            source={selectedVideo}            // The random pick
-            style={StyleSheet.absoluteFill}
-            resizeMode={ResizeMode.COVER}
-            shouldPlay
-            isLooping
-          />
-        )}
+        <View style={{ flex: 1 }}>
+          {/* If "playBackground" is true, show one of the TitleScreen?.mp4 behind everything */}
+          {playBackground && (
+            <Video
+              source={selectedVideo}            // The random pick
+              style={StyleSheet.absoluteFill}
+              resizeMode={ResizeMode.COVER}
+              shouldPlay
+              isLooping
+            />
+          )}
 
-        {/* Render child routes (StartScreen, MenuScreen, etc.) */}
-        <Slot />
-      </View>
-    </BgVideoContext.Provider>
+          {/* Render child routes (StartScreen, MenuScreen, etc.) */}
+          <Slot />
+        </View>
+      </BgVideoContext.Provider>
+    </Provider>
   );
 }

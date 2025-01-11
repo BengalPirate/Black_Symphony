@@ -6,13 +6,21 @@
       "@/*": [
         "./*"
       ]
-    }
+    },
+    "types": [
+      "node",
+      "react",
+      "react-native",
+      "react-redux"
+    ]
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     "./**/*.d.ts",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
+    "expo-env.d.ts",
+    "store/**/*",
+    "global.d.ts",
   ]
 }

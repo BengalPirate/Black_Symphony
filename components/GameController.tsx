@@ -15,6 +15,7 @@ type GameControllerProps = {
   onDash: () => void;
   onSpecial: () => void;
   onUseItem: () => void;
+  onMelee: () => void;
 };
 
 const JOYSTICK_SIZE = 100;
@@ -27,14 +28,15 @@ const MAX_RADIUS = (JOYSTICK_SIZE - KNOB_SIZE) / 2;
  */
 const getDirectionFromAngle = (angleDeg: number): Direction => {
   let angle = angleDeg;
-  if (angle > 180) angle -= 360;
-  if (angle < -180) angle += 360;
+  // Normalize angle to -180..180
+  while (angle > 180) angle -= 360;
+  while (angle < -180) angle += 360;
 
-  if (angle >= -22.5 && angle <= 22.5) return 'right';       
-  if (angle > 22.5 && angle <= 67.5) return 'southeast';     
-  if (angle > 67.5 && angle <= 112.5) return 'down';         
-  if (angle > 112.5 && angle <= 157.5) return 'southwest';   
-  if (angle > 157.5 || angle <= -157.5) return 'left';       
+  if (angle > -22.5 && angle <= 22.5) return 'right';
+  if (angle > 22.5 && angle <= 67.5) return 'southeast';
+  if (angle > 67.5 && angle <= 112.5) return 'down';
+  if (angle > 112.5 && angle <= 157.5) return 'southwest';
+  if (angle > 157.5 || angle <= -157.5) return 'left';
   if (angle > -157.5 && angle <= -112.5) return 'northwest';
   if (angle > -112.5 && angle <= -67.5) return 'up';
   if (angle > -67.5 && angle <= -22.5) return 'northeast';
@@ -47,6 +49,7 @@ const GameController: React.FC<GameControllerProps> = ({
   onDash,
   onSpecial,
   onUseItem,
+  onMelee
 }) => {
   // Movement joystick knob
   const [movementKnobX, setMovementKnobX] = useState(0);
@@ -183,6 +186,10 @@ const GameController: React.FC<GameControllerProps> = ({
           <Text style={styles.buttonText}>Dash</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={[styles.button, styles.meleeButton]} onPress={onMelee}>
+          <Text style={styles.buttonText}>Melee</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity style={[styles.button, styles.rightButton]} onPress={onUseItem}>
           <Text style={styles.buttonText}>Use</Text>
         </TouchableOpacity>
@@ -279,6 +286,13 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 20,
     top: 60,
+  },
+
+  // "Melee" - new: place it below dash, so top: ~130
+  meleeButton: {
+    position: 'absolute',
+    left: 20,
+    top: 130,
   },
 
   // "Use" horizontally aligned with "Special"

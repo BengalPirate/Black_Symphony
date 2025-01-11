@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 
 interface HealthBarProps {
   currentHealth: number;
@@ -9,19 +9,27 @@ interface HealthBarProps {
 const HealthBar: React.FC<HealthBarProps> = ({ currentHealth, maxHealth }) => {
   const barWidth = 350;
   const barHeight = 12;
-  const borderRadius = barHeight / 2; // To make the height fully rounded
+  const borderRadius = barHeight / 2;
   const healthRatio = currentHealth / maxHealth;
-  const healthWidth = barWidth * Math.max(0, Math.min(healthRatio, 1));
-  
+  const clampedRatio = Math.max(0, Math.min(healthRatio, 1));
+  const healthWidth = barWidth * clampedRatio;
+
+  const percentageLabel = `${(clampedRatio * 100).toFixed(1)}%`;
 
   return (
     <View style={[styles.container, { width: barWidth, height: barHeight }]}>
+      {/* Background */}
       <View
         style={[
           styles.background,
-          { width: barWidth, height: barHeight, borderRadius },
+          {
+            width: barWidth,
+            height: barHeight,
+            borderRadius,
+          },
         ]}
       />
+      {/* Filled portion */}
       <View
         style={[
           styles.foreground,
@@ -33,9 +41,17 @@ const HealthBar: React.FC<HealthBarProps> = ({ currentHealth, maxHealth }) => {
           },
         ]}
       />
+      {/* Centered label */}
+      <View style={styles.textContainer}>
+        <Text style={[styles.label, { fontSize: barHeight * 0.75 }]}>
+          {percentageLabel}
+        </Text>
+      </View>
     </View>
   );
 };
+
+export default HealthBar;
 
 const styles = StyleSheet.create({
   container: {
@@ -45,13 +61,26 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   background: {
-    backgroundColor: '#888',
+    // 50% translucent gray
+    backgroundColor: 'rgba(136, 136, 136, 0.3)',
     position: 'absolute',
   },
   foreground: {
-    backgroundColor: 'red',
+    // 50% translucent red
+    backgroundColor: 'rgba(255, 0, 0, 0.5)',
     position: 'absolute',
   },
+  textContainer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  label: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
 });
-
-export default HealthBar;
