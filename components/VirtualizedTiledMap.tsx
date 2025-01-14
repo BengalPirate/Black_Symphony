@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Image, StyleSheet } from 'react-native';
 
 interface TileLayer {
@@ -27,11 +27,21 @@ interface VirtualizedTiledMapProps {
   };
   tileSize: number;
 
-  // These are required to determine which tiles are in view
-  playerX: number;      // Player's world x-coordinate
-  playerY: number;      // Player's world y-coordinate
-  screenWidth: number;  // Width of the device screen
-  screenHeight: number; // Height of the device screen
+  playerX: number;
+  playerY: number;
+  screenWidth: number;
+  screenHeight: number;
+}
+
+// Define these constants for your sprite's size
+const SPRITE_DISPLAY_WIDTH = 64;  // Adjust based on your sprite size
+const SPRITE_DISPLAY_HEIGHT = 80; // Adjust based on your sprite size
+
+interface Hitbox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export default function VirtualizedTiledMap({
@@ -43,12 +53,27 @@ export default function VirtualizedTiledMap({
   screenHeight,
 }: VirtualizedTiledMapProps) {
 
-  // Extract only tile layers
+  const playerHitbox: Hitbox = {
+    x: playerX,
+    y: playerY,
+    width: SPRITE_DISPLAY_WIDTH,
+    height: SPRITE_DISPLAY_HEIGHT,
+  };
+
+  // Collision detection function
+  const isCollision = (playerHitbox: Hitbox, tileHitbox: Hitbox) => {
+    return !(
+      playerHitbox.x + playerHitbox.width <= tileHitbox.x || 
+      playerHitbox.x >= tileHitbox.x + tileHitbox.width ||
+      playerHitbox.y + playerHitbox.height <= tileHitbox.y || 
+      playerHitbox.y >= tileHitbox.y + tileHitbox.height
+    );
+  };
+
   const tileLayers = map.layers.filter(
     (layer) => layer.type === 'tilelayer' && layer.data && layer.width && layer.height
   ) as Required<TileLayer>[];
 
-  // Helper to find the correct tileset for a given GID
   const findTileset = (gid: number): TilesetInfo | null => {
     let chosen: TilesetInfo | null = null;
     for (let i = 0; i < map.tilesets.length; i++) {
@@ -67,8 +92,6 @@ export default function VirtualizedTiledMap({
   const getTilePosition = (tileIndex: number, tileset: TilesetInfo): { sourceX: number; sourceY: number } => {
     const { tilewidth, tileheight, imageWidth } = tileset;
     const tilesPerRow = Math.floor(imageWidth / tilewidth);
-
-    // Adjust tileIndex by subtracting tileset.firstgid to get the tile index local to that tileset
     const localIndex = tileIndex - tileset.firstgid;
     const row = Math.floor(localIndex / tilesPerRow);
     const col = localIndex % tilesPerRow;
@@ -77,16 +100,11 @@ export default function VirtualizedTiledMap({
     return { sourceX, sourceY };
   };
 
-  // Determine the range of tiles to render based on the player's position
-  // Convert screen size to number of tiles visible
   const tilesVisibleX = Math.ceil(screenWidth / tileSize);
   const tilesVisibleY = Math.ceil(screenHeight / tileSize);
-
-  // Center the view around the player
   const playerTileX = Math.floor(playerX / tileSize);
   const playerTileY = Math.floor(playerY / tileSize);
 
-  // Add a margin of a few tiles to avoid pop-in at edges
   const margin = 2;
   const startX = Math.max(playerTileX - Math.floor(tilesVisibleX / 2) - margin, 0);
   const startY = Math.max(playerTileY - Math.floor(tilesVisibleY / 2) - margin, 0);
@@ -98,12 +116,10 @@ export default function VirtualizedTiledMap({
       {tileLayers.map((layer, layerIndex) =>
         layer.data.map((tileIndex, i) => {
           if (tileIndex === 0) return null; // Empty tile
-
-          // Calculate the tile's x,y in tile coordinates
-          const x = (i % layer.width!) ;
+          
+          const x = i % layer.width!;
           const y = Math.floor(i / layer.width!);
 
-          // Skip tiles outside the visible range
           if (x < startX || x > endX || y < startY || y > endY) {
             return null;
           }
@@ -112,6 +128,19 @@ export default function VirtualizedTiledMap({
           if (!tileset) return null;
 
           const { sourceX, sourceY } = getTilePosition(tileIndex, tileset);
+
+          const tileHitbox: Hitbox = {
+            x: x * tileSize,
+            y: y * tileSize,
+            width: tileSize,
+            height: tileSize,
+          };
+
+          // Check for collision before rendering the tile
+          if (isCollision(playerHitbox, tileHitbox)) {
+            console.log('Collision detected at tile:', tileIndex);
+            return null;  // Prevent rendering the tile if there's a collision
+          }
 
           return (
             <View
@@ -146,6 +175,6 @@ export default function VirtualizedTiledMap({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
-    backgroundColor: 'white', // Just to confirm rendering area (optional)
+    backgroundColor: 'white',
   },
 });
