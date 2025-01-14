@@ -18,9 +18,11 @@
     "**/*.ts",
     "**/*.tsx",
     "./**/*.d.ts",
-    ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "store/**/*",
     "global.d.ts",
+    "backend/createRoom.js",
+    "backend/joinRoom.js",
+    ".expo/types/**/*.ts"
   ]
 }
