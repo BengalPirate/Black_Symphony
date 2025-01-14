@@ -421,7 +421,8 @@ export default function ArcadeScreen() {
     vy: number;
     damage: number;
   }
-
+ 
+  
   const [playerProjectiles, setPlayerProjectiles] = useState<ProjectileData[]>([]);
   const nextProjectileId = useRef<number>(1);
   const PROJECTILE_SPEED = 5;
