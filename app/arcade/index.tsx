@@ -19,9 +19,10 @@ import Player from '../../components/Player';
 import EnemyDragon from '../../components/EnemyDragon';
 import GameController from '../../components/GameController';
 import Sprite from '@/components/Sprite';
+import GameCollisionsHandler from '@/components/GameCollisionsHandler';
 
 // Multiple sprite sheets
-import spriteSheet from '../../assets/sprites/stat_sprites/stats.png';   // For “low” special
+import spriteSheet from '../../assets/sprites/stat_sprites/stats.png';   // For "low" special
 import spriteSheet2 from '../../assets/sprites/stat_sprites/stats2.png';
 import spriteSheet3 from '../../assets/sprites/stat_sprites/stats3.png'; // For charged + super
 
@@ -58,21 +59,38 @@ import { darkMageFrames } from '@/assets/sprites/player_sprites/dark_mage/darkMa
 const initialWidth = Dimensions.get('window').width;
 const initialHeight = Dimensions.get('window').height;
 
+// Game constants
+const MOVE_SPEED = 7;
+const TILE_SIZE = 32;
+const SPRITE_DISPLAY_WIDTH = 64;
+const SPRITE_DISPLAY_HEIGHT = 80;
+const PROJECTILE_SPEED = 5;
+
 interface DimensionsChangePayload {
   window: ScaledSize;
   screen: ScaledSize;
 }
+interface ProjectileData {
+  id: number;
+  x: number;      // Starting X position
+  y: number;      // Starting Y position
+  vx: number;     // Velocity X
+  vy: number;     // Velocity Y
+}
 
-const MOVE_SPEED = 3;
-const TILE_SIZE = 32;
+// Define props interface for PlayerProjectile component
+interface PlayerProjectileProps {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  onHit: () => void;
+  onDestroy: () => void;
+}
 
-// Half of the player's on-screen sprite size (128×160 => 64×80)
 const PROJECTILE_ANCHOR_X = 64;
 const PROJECTILE_ANCHOR_Y = 80;
 
-/**
- * Example SHIFT offsets 
- */
 const SHIFT_X = 310;
 const SHIFT_Y = -175;
 
@@ -112,9 +130,9 @@ export default function ArcadeScreen() {
   }
 
   // Device dims
-  const [deviceWidth, setDeviceWidth] = useState(initialWidth);
-  const [deviceHeight, setDeviceHeight] = useState(initialHeight);
-
+  const [deviceWidth, setDeviceWidth] = useState<number>(initialWidth);
+  const [deviceHeight, setDeviceHeight] = useState<number>(initialHeight);
+ 
   useEffect(() => {
     const handleDimChange = ({ window, screen }: DimensionsChangePayload) => {
       setDeviceWidth(window.width);
@@ -134,7 +152,8 @@ export default function ArcadeScreen() {
     y: mapHeightPx / 2,
   });
 
-  // Ref for newest position
+  
+
   const playerPosRef = useRef<Position>(playerWorldPos);
 
   function updatePlayerPos(x: number, y: number) {
@@ -143,8 +162,8 @@ export default function ArcadeScreen() {
   }
 
   const [direction, setDirection] = useState<Direction>('down');
-  const [isMoving, setIsMoving] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isMoving, setIsMoving] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
   const [joystickDirection, setJoystickDirection] = useState({ dx: 0, dy: 0 });
   const frameRequestRef = useRef<number | null>(null);
 
@@ -171,6 +190,7 @@ export default function ArcadeScreen() {
     return polygons;
   });
 
+  
   function handleMove(dx: number, dy: number, newDirection: Direction) {
     if (dx === 0 && dy === 0) {
       setIsMoving(false);
@@ -178,7 +198,6 @@ export default function ArcadeScreen() {
       setIsMoving(true);
       setDirection(newDirection);
 
-      // Normalize
       const length = Math.sqrt(dx * dx + dy * dy);
       if (length > 0.0001) {
         dx /= length;
@@ -232,11 +251,14 @@ export default function ArcadeScreen() {
     };
   }, [joystickDirection, barriers, isPaused]);
 
+
+  
+
   // Camera offset
   const offsetX = deviceWidth / 2 - playerWorldPos.x;
   const offsetY = deviceHeight / 2 - playerWorldPos.y;
 
-  // For the special bar animations
+  // Bar animations
   const specialLowFrames = [32, 64, 96, 128, 160];
   const specialMedFrames = [32, 64, 96, 128, 160];
   const specialHighFrames = [32, 64, 96, 128, 160];
@@ -255,7 +277,7 @@ export default function ArcadeScreen() {
   const rageMeterFrames = [0, 32, 64, 96, 128];
   const bossFrames = [0, 32, 64, 96, 128, 160, 192, 192, 160, 128, 96, 64, 32, 0];
 
-  const [heartFrameIndex, setHeartFrameIndex] = useState(0);
+  const [heartFrameIndex, setHeartFrameIndex] = useState<number>(0);
   useEffect(() => {
     const intId = setInterval(() => {
       setHeartFrameIndex((prev) => (prev + 1) % heartFrames.length);
@@ -263,7 +285,7 @@ export default function ArcadeScreen() {
     return () => clearInterval(intId);
   }, []);
 
-  const [staminaFrameIndex, setStaminaFrameIndex] = useState(0);
+  const [staminaFrameIndex, setStaminaFrameIndex] = useState<number>(0);
   useEffect(() => {
     const intId = setInterval(() => {
       setStaminaFrameIndex((prev) => (prev + 1) % staminaFrames.length);
@@ -271,7 +293,7 @@ export default function ArcadeScreen() {
     return () => clearInterval(intId);
   }, []);
 
-  const [shieldFrameIndex, setShieldFrameIndex] = useState(0);
+  const [shieldFrameIndex, setShieldFrameIndex] = useState<number>(0);
   useEffect(() => {
     const intId = setInterval(() => {
       setShieldFrameIndex((prev) => (prev + 1) % shieldFrames.length);
@@ -279,7 +301,7 @@ export default function ArcadeScreen() {
     return () => clearInterval(intId);
   }, []);
 
-  const [timerFrameIndex, setTimerFrameIndex] = useState(0);
+  const [timerFrameIndex, setTimerFrameIndex] = useState<number>(0);
   useEffect(() => {
     const intId = setInterval(() => {
       setTimerFrameIndex((prev) => (prev + 1) % combinedTimerFrames.length);
@@ -288,7 +310,7 @@ export default function ArcadeScreen() {
   }, []);
   const currentTimerFrame = combinedTimerFrames[timerFrameIndex];
 
-  const [rageMeterFrameIndex, setRageMeterFrameIndex] = useState(0);
+  const [rageMeterFrameIndex, setRageMeterFrameIndex] = useState<number>(0);
   useEffect(() => {
     const intId = setInterval(() => {
       setRageMeterFrameIndex((prev) => (prev + 1) % rageMeterFrames.length);
@@ -296,7 +318,7 @@ export default function ArcadeScreen() {
     return () => clearInterval(intId);
   }, []);
 
-  const [bossFrameIndex, setBossFrameIndex] = useState(0);
+  const [bossFrameIndex, setBossFrameIndex] = useState<number>(0);
   useEffect(() => {
     const intId = setInterval(() => {
       setBossFrameIndex((prev) => (prev + 1) % bossFrames.length);
@@ -304,9 +326,10 @@ export default function ArcadeScreen() {
     return () => clearInterval(intId);
   }, []);
 
-  const [playerSpecial, setPlayerSpecial] = useState(150);
-  const [playerMaxSpecial, setPlayerMaxSpecial] = useState(100);
-  const [specialFrameIndex, setSpecialFrameIndex] = useState(0);
+  // Player stats and meters
+  const [playerSpecial, setPlayerSpecial] = useState<number>(150);
+  const [playerMaxSpecial, setPlayerMaxSpecial] = useState<number>(100);
+  const [specialFrameIndex, setSpecialFrameIndex] = useState<number>(0);
 
   useEffect(() => {
     let intId: NodeJS.Timeout | null = null;
@@ -358,27 +381,34 @@ export default function ArcadeScreen() {
     );
   }
 
-  // Player stats
-  const [playerHealth, setPlayerHealth] = useState(100);
-  const [playerMaxHealth, setPlayerMaxHealth] = useState(100);
 
-  const [playerStamina, setPlayerStamina] = useState(100);
-  const [playerMaxStamina, setPlayerMaxStamina] = useState(100);
+  const [playerHealth, setPlayerHealth] = useState<number>(100);
+  const [playerMaxHealth, setPlayerMaxHealth] = useState<number>(100);
+  const [playerStamina, setPlayerStamina] = useState<number>(100);
+  const [playerMaxStamina, setPlayerMaxStamina] = useState<number>(100);
+  const [currentShield, setCurrentShield] = useState<number>(30);
+  const [maxShield, setMaxShield] = useState<number>(100);
+  const [currentRage, setCurrentRage] = useState<number>(50);
+  const [maxRage, setMaxRage] = useState<number>(100);
+  const [currentTime, setCurrentTime] = useState<number>(10);
+  const [maxTime, setMaxTime] = useState<number>(30);
+  const [currentBossHP, setCurrentBossHP] = useState<number>(300);
+  const [maxBossHP, setMaxBossHP] = useState<number>(300);
+  // is hurt 
+  const [isHurt, setIsHurt] = useState(false);
 
-  const [currentShield, setCurrentShield] = useState(30);
-  const [maxShield, setMaxShield] = useState(100);
-
-  const [currentRage, setCurrentRage] = useState(50);
-  const [maxRage, setMaxRage] = useState(100);
-
-  const [currentTime, setCurrentTime] = useState(10);
-  const [maxTime, setMaxTime] = useState(30);
-
-  const [currentBossHP, setCurrentBossHP] = useState(7000);
-  const [maxBossHP, setMaxBossHP] = useState(10000);
-
+  const handlePlayerDamage = React.useCallback(() => {
+    console.log('Damage handler called');
+    setPlayerHealth(prev => {
+      const newHealth = Math.max(0, prev - 10);
+      console.log('Health updated from', prev, 'to', newHealth);
+      return newHealth;
+    });
+    setIsHurt(true);
+    setTimeout(() => setIsHurt(false), 200);
+  }, []);
   // Slashing
-  const [isSlashing, setIsSlashing] = useState(false);
+  const [isSlashing, setIsSlashing] = useState<boolean>(false);
 
   // Projectiles
   interface ProjectileData {
@@ -389,40 +419,44 @@ export default function ArcadeScreen() {
     y: number;      
     vx: number;
     vy: number;
+    damage: number;
   }
 
   const [playerProjectiles, setPlayerProjectiles] = useState<ProjectileData[]>([]);
-  const nextProjectileId = useRef(1);
+  const nextProjectileId = useRef<number>(1);
+  const PROJECTILE_SPEED = 5;
 
   function handleShoot(dx: number, dy: number) {
     if (dx === 0 && dy === 0) return;
+    
     const length = Math.sqrt(dx * dx + dy * dy);
     if (length < 0.001) return;
+    
     const vx = dx / length;
     const vy = dy / length;
     const newId = nextProjectileId.current++;
-
+  
+    // Get player's current position
     const { x: currentX, y: currentY } = playerPosRef.current;
-
+  
+    // Logic position is raw player position
     const logicX = currentX;
     const logicY = currentY;
-    const renderX = currentX - PROJECTILE_ANCHOR_X + SHIFT_X;
-    const renderY = currentY - PROJECTILE_ANCHOR_Y + SHIFT_Y;
-
+  
     setPlayerProjectiles((prev) => [
       ...prev,
       {
         id: newId,
-        logicX,
-        logicY,
-        x: renderX,
-        y: renderY,
+        logicX: logicX,
+        logicY: logicY,
+        x: logicX,
+        y: logicY,
         vx,
         vy,
+        damage: 10,  // Added damage property, adjust the value as needed
       },
     ]);
-  }
-
+}
   function removePlayerProjectile(projId: number) {
     setPlayerProjectiles((prev) => prev.filter((p) => p.id !== projId));
   }
@@ -447,6 +481,13 @@ export default function ArcadeScreen() {
     console.log('Sword slash box:', box);
   }
 
+  // Handle projectile hit on boss
+  const handleBossHit = () => {
+    setCurrentBossHP(prev => Math.max(0, prev - 100));
+  };
+
+  
+ 
   return (
     <View style={styles.container}>
       {/* MAP */}
@@ -461,14 +502,47 @@ export default function ArcadeScreen() {
         </View>
       </View>
 
+      {/* Add GameCollisionsHandler */}
+      <GameCollisionsHandler
+  mapWidth={mapWidthPx}
+  mapHeight={mapHeightPx}
+  offsetX={offsetX}
+  offsetY={offsetY}
+  playerX={playerWorldPos.x}
+  playerY={playerWorldPos.y}
+  playerWidth={32}
+  playerHeight={32}
+  onPlayerDamage={handlePlayerDamage}
+  currentBossHP={currentBossHP}
+  setCurrentBossHP={setCurrentBossHP}
+  maxBossHP={maxBossHP}
+/>
+
+      {/* Update PlayerProjectiles rendering */}
+      {playerProjectiles.map((projectile) => (
+    <PlayerProjectile
+        key={projectile.id}
+        startX={projectile.x}
+        startY={projectile.y}
+        velocityX={projectile.vx}
+        velocityY={projectile.vy}
+        speed={PROJECTILE_SPEED}
+        onRemove={() => removePlayerProjectile(projectile.id)}
+        offsetX={offsetX}
+        offsetY={offsetY}
+        mapWidth={mapWidthPx}
+        mapHeight={mapHeightPx}
+    />
+))}
+
       {/* Bars */}
       <HealthBar currentHealth={playerHealth} maxHealth={playerMaxHealth} />
-      <StaminaBar currentStamina={playerStamina} maxStamina={playerMaxStamina} />
-      <SpecialAttackBar currentSpecial={playerSpecial} maxSpecial={playerMaxSpecial} />
-      <ShieldBar currentShield={currentShield} maxShield={maxShield} />
-      <RageMeterBar currentRage={currentRage} maxRage={maxRage} />
-      <TimerBar currentTime={currentTime} maxTime={maxTime} />
-      <BossHealthBar currentBossHealth={currentBossHP} maxBossHealth={maxBossHP} />
+    <StaminaBar currentStamina={playerStamina} maxStamina={playerMaxStamina} />
+    <SpecialAttackBar currentSpecial={playerSpecial} maxSpecial={playerMaxSpecial} />
+    <ShieldBar currentShield={currentShield} maxShield={maxShield} />
+    <RageMeterBar currentRage={currentRage} maxRage={maxRage} />
+    <TimerBar currentTime={currentTime} maxTime={maxTime} />
+    <BossHealthBar currentBossHealth={currentBossHP} maxBossHealth={maxBossHP} />
 
       {/* HEART ICON */}
       <View style={{ position: 'absolute', top: 0, left: 30 }}>
@@ -547,24 +621,6 @@ export default function ArcadeScreen() {
         {renderSpecialSprite()}
       </View>
 
-      {/* Player projectiles */}
-      {playerProjectiles.map((proj) => (
-        <PlayerProjectile
-          key={proj.id}
-          startX={proj.x}
-          startY={proj.y}
-          velocityX={proj.vx}
-          velocityY={proj.vy}
-          speed={10}
-          onRemove={() => removePlayerProjectile(proj.id)}
-          offsetX={offsetX}
-          offsetY={offsetY}
-          // Pass the map's actual size for the bounding
-          mapWidth={mapWidthPx}
-          mapHeight={mapHeightPx}
-        />
-      ))}
-
       {/* Collision debug */}
       <Svg style={StyleSheet.absoluteFill}>
         <G transform={`translate(${offsetX}, ${offsetY})`}>
@@ -593,18 +649,7 @@ export default function ArcadeScreen() {
         isDashing={false}
         worldX={playerWorldPos.x}
         worldY={playerWorldPos.y}
-      />
-
-      {/* Enemy Dragon */}
-      <EnemyDragon
-        worldX={400}
-        worldY={500}
-        offsetX={offsetX}
-        offsetY={offsetY}
-        onUpdateHitbox={(box) => {
-          console.log('Dragon bounding box is', box);
-        }}
-        currentBossHealth={currentBossHP}
+        style={isHurt ? { opacity: 0.5, backgroundColor: 'red' } : undefined}
       />
 
       <PlayerSwordSlash
@@ -617,7 +662,6 @@ export default function ArcadeScreen() {
         onCheckCollision={handleSwordCollision}
       />
 
-      {/* GAME CONTROLLER */}
       <GameController
         onMove={(dx, dy, dir) => handleMove(dx, dy, dir)}
         onShoot={handleShoot}
@@ -671,7 +715,6 @@ export default function ArcadeScreen() {
   );
 }
 
-/* ------------------------------------- */
 const styles = StyleSheet.create({
   container: {
     flex: 1,

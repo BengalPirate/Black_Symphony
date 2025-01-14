@@ -1,5 +1,4 @@
-// PlayerProjectile.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 
 interface PlayerProjectileProps {
@@ -11,7 +10,6 @@ interface PlayerProjectileProps {
   onRemove: () => void;
   offsetX: number;
   offsetY: number;
-  // NEW PROPS: The map's real boundaries
   mapWidth: number;
   mapHeight: number;
 }
@@ -28,53 +26,94 @@ export default function PlayerProjectile({
   mapWidth,
   mapHeight,
 }: PlayerProjectileProps) {
-  // Store position in world coords
   const [pos, setPos] = useState({ x: startX, y: startY });
+  const lastDebugTime = useRef(0);
+  const DEBUG_INTERVAL = 1000; // Log every 1 second if needed
 
-  // Move the projectile in world space
   useEffect(() => {
     const interval = setInterval(() => {
-      setPos((prev) => ({
-        x: prev.x + velocityX * speed,
-        y: prev.y + velocityY * speed,
-      }));
-    }, 16); // ~60FPS
+      setPos((prev) => {
+        const newPos = {
+          x: prev.x + velocityX * speed,
+          y: prev.y + velocityY * speed,
+        };
+
+        // Only log position occasionally in development
+        if (__DEV__) {
+          const now = Date.now();
+          if (now - lastDebugTime.current > DEBUG_INTERVAL) {
+            lastDebugTime.current = now;
+            console.warn('Projectile position:', {
+              pos: newPos,
+              velocity: { x: velocityX, y: velocityY }
+            });
+          }
+        }
+
+        return newPos;
+      });
+    }, 16);
+
     return () => clearInterval(interval);
   }, [velocityX, velocityY, speed]);
 
-  // Remove if out of the map boundaries
   useEffect(() => {
-    // If projectile is outside the map, remove it
     if (pos.x < 0 || pos.x > mapWidth || pos.y < 0 || pos.y > mapHeight) {
       onRemove();
     }
   }, [pos, onRemove, mapWidth, mapHeight]);
 
-  // Convert world -> screen by applying offset
-  const screenX = pos.x + offsetX;
-  const screenY = pos.y + offsetY;
-
-  // Example bounding box
   const BOX_SIZE = 10;
 
   return (
-    <View
-      style={[
-        styles.projectile,
-        {
-          left: screenX,
-          top: screenY,
-          width: BOX_SIZE,
-          height: BOX_SIZE,
-        },
-      ]}
-    />
+    <View style={styles.container}>
+      {/* Actual Projectile */}
+      <View
+        style={[
+          styles.projectile,
+          {
+            left: pos.x + offsetX,
+            top: pos.y + offsetY,
+            width: BOX_SIZE,
+            height: BOX_SIZE,
+          },
+        ]}
+      />
+      
+      {/* Debug Hitbox - only shown in development */}
+      {__DEV__ && (
+        <View
+          style={[
+            styles.hitbox,
+            {
+              left: pos.x + offsetX,
+              top: pos.y + offsetY,
+              width: BOX_SIZE,
+              height: BOX_SIZE,
+            },
+          ]}
+        />
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    zIndex: 100,
+  },
   projectile: {
     position: 'absolute',
     backgroundColor: 'yellow',
+    borderRadius: 5,
+    zIndex: 101,
+  },
+  hitbox: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: '#FF0000', 
+    backgroundColor: 'rgba(255, 0, 0, 0.2)',
+    zIndex: 100,
   },
 });

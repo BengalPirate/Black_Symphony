@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 
 interface BossHealthBarProps {
@@ -12,25 +12,48 @@ const BossHealthBar: React.FC<BossHealthBarProps> = ({
 }) => {
   const barWidth = 300;
   const barHeight = 16;
-  const barGap = -16; // Overlap similar to SpecialAttackBar
+  const barGap = -16;
   const borderRadius = barHeight / 2;
 
-  // Divide health into three stages
-  const stageHealth = maxBossHealth / 3; // Each stage represents 1/3 of the total health
+  // Divide total health into stages
+  const stageHealth = maxBossHealth / 3;
+
+  // Calculate health for each stage (top to bottom)
+  const thirdStageHealth = Math.min(Math.max(0, currentBossHealth - (2 * stageHealth)), stageHealth);
+  const secondStageHealth = Math.min(Math.max(0, currentBossHealth - stageHealth), stageHealth);
   const firstStageHealth = Math.min(currentBossHealth, stageHealth);
-  const secondStageHealth = Math.max(0, Math.min(currentBossHealth - stageHealth, stageHealth));
-  const thirdStageHealth = Math.max(0, currentBossHealth - 2 * stageHealth);
 
   // Calculate bar widths
-  const firstBarWidth = (firstStageHealth / stageHealth) * barWidth;
-  const secondBarWidth = (secondStageHealth / stageHealth) * barWidth;
   const thirdBarWidth = (thirdStageHealth / stageHealth) * barWidth;
+  const secondBarWidth = (secondStageHealth / stageHealth) * barWidth;
+  const firstBarWidth = (firstStageHealth / stageHealth) * barWidth;
 
-  const labelStr = `${currentBossHealth} / ${maxBossHealth}`;
+  // Debug logging
+  useEffect(() => {
+    if (__DEV__) {
+      console.warn('Boss Health Bar State:', {
+        currentHealth: currentBossHealth,
+        maxHealth: maxBossHealth,
+        stageHealth,
+        stages: {
+          first: firstStageHealth,
+          second: secondStageHealth,
+          third: thirdStageHealth
+        },
+        widths: {
+          first: firstBarWidth,
+          second: secondBarWidth,
+          third: thirdBarWidth
+        }
+      });
+    }
+  }, [currentBossHealth, maxBossHealth, firstBarWidth, secondBarWidth, thirdBarWidth]);
+
+  const labelStr = `${Math.ceil(currentBossHealth)} / ${maxBossHealth}`;
 
   return (
     <View style={[styles.container, { width: barWidth, height: barHeight * 3 }]}>
-      {/* Background for the entire health bar system */}
+      {/* Background */}
       <View
         style={[
           styles.barBackground,
@@ -38,7 +61,7 @@ const BossHealthBar: React.FC<BossHealthBarProps> = ({
         ]}
       />
 
-      {/* First Bar */}
+      {/* Stage 1 Bar (Red) */}
       <View style={[styles.barContainer, { marginTop: 0 }]}>
         <View
           style={[
@@ -46,15 +69,13 @@ const BossHealthBar: React.FC<BossHealthBarProps> = ({
             {
               width: firstBarWidth,
               height: barHeight,
-              borderTopLeftRadius: borderRadius,
-              borderBottomLeftRadius: borderRadius,
-              alignSelf: 'flex-end', // Align the bar to the right
+              borderRadius: borderRadius,
             },
           ]}
         />
       </View>
 
-      {/* Second Bar */}
+      {/* Stage 2 Bar (Yellow) */}
       <View style={[styles.barContainer, { marginTop: barGap }]}>
         <View
           style={[
@@ -62,15 +83,13 @@ const BossHealthBar: React.FC<BossHealthBarProps> = ({
             {
               width: secondBarWidth,
               height: barHeight,
-              borderTopLeftRadius: borderRadius,
-              borderBottomLeftRadius: borderRadius,
-              alignSelf: 'flex-end', // Align the bar to the right
+              borderRadius: borderRadius,
             },
           ]}
         />
       </View>
 
-      {/* Third Bar */}
+      {/* Stage 3 Bar (Green) */}
       <View style={[styles.barContainer, { marginTop: barGap }]}>
         <View
           style={[
@@ -78,52 +97,52 @@ const BossHealthBar: React.FC<BossHealthBarProps> = ({
             {
               width: thirdBarWidth,
               height: barHeight,
-              borderTopLeftRadius: borderRadius,
-              borderBottomLeftRadius: borderRadius,
-              alignSelf: 'flex-end', // Align the bar to the right
+              borderRadius: borderRadius,
             },
           ]}
         />
       </View>
 
-      {/* Label */}
+      {/* Health Label */}
       <View style={styles.labelContainer}>
-        <Text style={[styles.label, { fontSize: barHeight * 0.6 }]}>{labelStr}</Text>
+        <Text style={[styles.label, { fontSize: barHeight * 0.8 }]}>{labelStr}</Text>
       </View>
     </View>
   );
 };
 
-export default BossHealthBar;
-
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: 30, // Adjust as needed
-    left: 444, // Adjust as needed
+    top: 30,
+    left: 444,
     zIndex: 9999,
   },
   barContainer: {
     position: 'relative',
     width: '100%',
     height: 16,
+    overflow: 'hidden',
   },
   barBackground: {
     position: 'absolute',
-    backgroundColor: 'rgba(136, 136, 136, 0.3)', // Single background for all bars
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     borderRadius: 8,
   },
   firstBar: {
     position: 'absolute',
-    backgroundColor: 'rgba(128, 128, 128, 1)', 
+    backgroundColor: '#ff4444',
+    left: 0,
   },
   secondBar: {
     position: 'absolute',
-    backgroundColor: 'rgba(0, 0, 0, 1)', 
+    backgroundColor: '#ffff00',
+    left: 0,
   },
   thirdBar: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 105, 180, 1)', 
+    backgroundColor: '#44ff44',
+    left: 0,
   },
   labelContainer: {
     position: 'absolute',
@@ -133,10 +152,15 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1, // Ensure the label stays above the bars
+    zIndex: 1,
   },
   label: {
     color: '#fff',
     fontWeight: 'bold',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
 });
+
+export default BossHealthBar;

@@ -1,10 +1,10 @@
 // Player.tsx
-import React, { useEffect, useState } from 'react';
-import { View, Dimensions, StyleSheet, ScaledSize } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Dimensions, StyleSheet, ScaledSize, ViewStyle } from 'react-native';
 import { Direction } from '../constants/types';
 import Sprite from '@/components/Sprite';
 
-// Here’s the type for each direction’s info
+// Here's the type for each direction's info
 interface Frame {
   x: number;
   y: number;
@@ -21,21 +21,49 @@ interface DirectionInfo {
 type FramesDictionary = Record<string, DirectionInfo>;
 
 interface PlayerProps {
-  frames: FramesDictionary;  // <--- We now accept the full frames object
+  frames: Record<string, DirectionInfo>;
   x: number;
   y: number;
   direction: Direction;
   isMoving: boolean;
   isDashing: boolean;
-  worldX?: number;
-  worldY?: number;
-  onUpdateHitbox?: (hitbox: { x: number; y: number; width: number; height: number }) => void;
+  worldX: number;
+  worldY: number;
+  style?: ViewStyle;
+  
+  // Optional health-related props
+  currentHealth?: number;
+  maxHealth?: number;
+  onHealthChange?: (newHealth: number) => void;
+  lastDamagedTime?: number;
+
+  onUpdateHitbox?: (hitbox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => void; 
 }
 
 interface DimensionsChangePayload {
   window: ScaledSize;
   screen: ScaledSize;
 }
+
+const styles = StyleSheet.create({
+  playerContainer: {
+    position: 'absolute',
+    zIndex: 9999, // on top
+  },
+  hitbox: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    borderColor: 'green',
+    borderWidth: 2,
+    opacity: 0.5,
+  }
+});
 
 export default function Player({
   frames,
@@ -46,6 +74,11 @@ export default function Player({
   isDashing,
   worldX,
   worldY,
+  style,
+  currentHealth = 100,
+  maxHealth = 100,
+  onHealthChange = () => {},
+  lastDamagedTime = 0,
   onUpdateHitbox,
 }: PlayerProps) {
   // Keep track of device dimension, in case it changes
@@ -55,6 +88,15 @@ export default function Player({
   // Keep track of last direction so we can idle in that direction
   const [lastDirection, setLastDirection] = useState<Direction>('down');
 
+  // Health regeneration configuration
+  const HEALTH_REGEN_DELAY = 5000;   // 5 seconds after taking damage
+  const HEALTH_REGEN_RATE = 1;       // 1 health per second
+  const HEALTH_REGEN_INTERVAL = 1000; // Check every second
+
+  // Use a ref to track the health regen interval
+  const healthRegenIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Device dimensions effect
   useEffect(() => {
     const onChange = ({ window, screen }: DimensionsChangePayload) => {
       setDevWidth(window.width);
@@ -63,6 +105,42 @@ export default function Player({
     const subscription = Dimensions.addEventListener('change', onChange);
     return () => subscription.remove();
   }, []);
+
+  // Health regeneration logic
+  useEffect(() => {
+    // Clear any existing interval
+    if (healthRegenIntervalRef.current) {
+      clearInterval(healthRegenIntervalRef.current);
+    }
+
+    // Check if enough time has passed since last damage and health is not full
+    const currentTime = Date.now();
+    if (
+      currentHealth < maxHealth && 
+      currentTime - lastDamagedTime > HEALTH_REGEN_DELAY
+    ) {
+      // Start regeneration interval
+      healthRegenIntervalRef.current = setInterval(() => {
+        // Regenerate health, but don't exceed max
+        const newHealth = Math.min(
+          maxHealth, 
+          currentHealth + HEALTH_REGEN_RATE
+        );
+
+        // Only update if health has changed
+        if (newHealth !== currentHealth) {
+          onHealthChange(newHealth);
+        }
+      }, HEALTH_REGEN_INTERVAL);
+
+      // Cleanup interval on unmount or when health is full
+      return () => {
+        if (healthRegenIntervalRef.current) {
+          clearInterval(healthRegenIntervalRef.current);
+        }
+      };
+    }
+  }, [currentHealth, maxHealth, lastDamagedTime, onHealthChange]);
 
   // If moving, update last direction
   useEffect(() => {
@@ -103,13 +181,14 @@ export default function Player({
 
   // Provide bounding box if needed
   useEffect(() => {
+    // Use world coordinates for the hitbox
     onUpdateHitbox?.({
-      x: spriteLeft,
-      y: spriteTop,
+      x: worldX,  // Use world coordinates instead of screen coordinates
+      y: worldY,
       width: SPRITE_DISPLAY_WIDTH,
       height: SPRITE_DISPLAY_HEIGHT,
     });
-  }, [spriteLeft, spriteTop, onUpdateHitbox]);
+  }, [worldX, worldY, onUpdateHitbox]);
 
   // If idle, show idleFrame; otherwise pick runFrames[frameIndex]
   let frameToShow: Frame;
@@ -131,8 +210,20 @@ export default function Player({
           width: SPRITE_DISPLAY_WIDTH,
           height: SPRITE_DISPLAY_HEIGHT,
         },
+        style
       ]}
     >
+      {/* Hitbox visualization */}
+      <View
+        style={[
+          styles.hitbox,
+          {
+            width: SPRITE_DISPLAY_WIDTH,
+            height: SPRITE_DISPLAY_HEIGHT,
+          }
+        ]}
+      />
+      {/* Sprite */}
       <Sprite
         spriteSheet={def.sheet}
         x={frameToShow.x}
@@ -141,16 +232,8 @@ export default function Player({
         height={SPRITE_DISPLAY_HEIGHT}
         sheetWidth={def.sheetWidth}
         sheetHeight={def.sheetHeight}
-        // scale=2 => each 32×40 tile becomes 64×80
-        scale={2}
+        scale={2} // scale=2 => each 32×40 tile becomes 64×80
       />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  playerContainer: {
-    position: 'absolute',
-    zIndex: 9999, // on top
-  },
-});
